@@ -20,11 +20,11 @@ export const Route = createFileRoute("/")({
         content:
           "Organize despensa, contas, cartões, dívidas e guarda-roupa em um só lugar, sincronizado em tempo real entre o casal.",
       },
-      { property: "og:title", content: "Nossa Casa — organização do lar a dois" },
+      { property: "og:title", content: "Nossa Casa — despensa, finanças e guarda-roupa a dois" },
       {
         property: "og:description",
         content:
-          "Despensa, finanças e guarda-roupa com IA, compartilhados em tempo real entre você e quem mora com você.",
+          "Organize despensa, contas, cartões, dívidas e guarda-roupa em um só lugar, sincronizado em tempo real entre o casal.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
