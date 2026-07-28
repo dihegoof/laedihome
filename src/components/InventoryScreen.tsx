@@ -70,10 +70,14 @@ export function InventoryScreen({ userName }: { userName: string }) {
 
   async function changeQuantity(product: Product, delta: number) {
     const next = Math.max(0, Number((Number(product.quantity) + delta).toFixed(3)));
-    const patch: Record<string, unknown> = { quantity: next, is_new: false };
-    if (next === 0 && Number(product.quantity) > 0) patch.out_of_stock_since = new Date().toISOString();
-    if (next > 0) patch.out_of_stock_since = null;
+    const patch = {
+      quantity: next,
+      is_new: false,
+      out_of_stock_since:
+        next > 0 ? null : (product.out_of_stock_since ?? new Date().toISOString()),
+    };
     const { error } = await supabase.from("products").update(patch).eq("id", product.id);
+
     if (error) return toast.error(error.message);
     void invalidate("products");
     void logHistory(userName, next === 0 ? "acabou o produto" : `alterou quantidade para ${qty(next)}`, product.name);
