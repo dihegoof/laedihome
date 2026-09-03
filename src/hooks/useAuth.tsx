@@ -92,7 +92,7 @@ export const AuthService = {
   },
 
   async signIn(nameOrEmail: string, password: string) {
-    let email = nameOrEmail.trim();
+    let email = nameOrEmail.trim().toLowerCase();
     if (!email.includes("@")) {
       const { data, error } = await supabase.rpc("email_for_name", { _name: email });
       if (error || !data) {
@@ -103,6 +103,13 @@ export const AuthService = {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
     return data;
+  },
+
+  async resetPassword(email: string) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) throw error;
   },
 
   async signOut() {

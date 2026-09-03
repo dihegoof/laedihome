@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { Eye, EyeOff, Home } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Home, MailCheck } from "lucide-react";
 import { AuthService } from "@/hooks/useAuth";
 import { Button, Field, Spinner } from "@/components/kit";
 
 export function AuthScreen() {
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup" | "forgot">("login");
   const [name, setName] = useState("");
   const [nameOrEmail, setNameOrEmail] = useState("");
   const [email, setEmail] = useState("");
@@ -22,10 +22,14 @@ export function AuthScreen() {
         if (password.length < 6) throw new Error("A senha precisa ter ao menos 6 caracteres");
         await AuthService.signUp(name, email, password);
         toast.success("Conta criada! Bem-vindo(a).");
-      } else {
+      } else if (mode === "login") {
         if (!nameOrEmail.trim() || !password) throw new Error("Preencha nome/e-mail e senha");
         await AuthService.signIn(nameOrEmail, password);
         toast.success("Bem-vindo(a) de volta!");
+      } else {
+        if (!email.includes("@")) throw new Error("Informe seu e-mail cadastrado");
+        await AuthService.resetPassword(email);
+        toast.success("Enviamos o link para redefinir sua senha.");
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Não foi possível entrar";
@@ -44,11 +48,15 @@ export function AuthScreen() {
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-soft">
             <Home className="h-7 w-7" />
           </div>
-          <h1 className="text-2xl">{mode === "login" ? "Entrar" : "Criar conta"}</h1>
+          <h1 className="text-2xl">
+            {mode === "login" ? "Entrar" : mode === "signup" ? "Criar conta" : "Recuperar senha"}
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {mode === "login"
               ? "Use seu nome ou e-mail para acessar"
-              : "Crie sua conta para começar"}
+              : mode === "signup"
+                ? "Crie sua conta para começar"
+                : "Enviaremos um link para o seu e-mail"}
           </p>
         </div>
 
@@ -71,7 +79,7 @@ export function AuthScreen() {
             </Field>
           )}
 
-          {mode === "signup" ? (
+          {mode === "signup" || mode === "forgot" ? (
             <Field label="E-mail">
               <input
                 className="field"
@@ -94,29 +102,49 @@ export function AuthScreen() {
             </Field>
           )}
 
-          <Field label="Senha">
-            <div className="relative">
-              <input
-                className="field pr-11"
-                type={show ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Senha"
-                autoComplete={mode === "login" ? "current-password" : "new-password"}
-              />
-              <button
-                type="button"
-                onClick={() => setShow((s) => !s)}
-                aria-label={show ? "Ocultar senha" : "Mostrar senha"}
-                className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground"
-              >
-                {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </Field>
+          {mode !== "forgot" && (
+            <Field label="Senha">
+              <div className="relative">
+                <input
+                  className="field pr-11"
+                  type={show ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Senha"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShow((s) => !s)}
+                  aria-label={show ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-muted-foreground"
+                >
+                  {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </Field>
+          )}
+
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={() => setMode("forgot")}
+              className="block w-full text-right text-sm font-semibold text-primary"
+            >
+              Esqueci minha senha
+            </button>
+          )}
 
           <Button type="submit" size="lg" className="mt-2 w-full" disabled={busy}>
-            {busy ? <Spinner /> : mode === "login" ? "Entrar" : "Cadastrar"}
+            {busy ? (
+              <Spinner />
+            ) : mode === "login" ? (
+              "Entrar"
+            ) : mode === "signup" ? (
+              "Cadastrar"
+            ) : (
+              <><MailCheck className="h-4 w-4" /> Enviar link</>
+            )}
           </Button>
         </form>
 
@@ -124,7 +152,13 @@ export function AuthScreen() {
           onClick={() => setMode(mode === "login" ? "signup" : "login")}
           className="mt-4 w-full text-center text-sm font-medium text-primary"
         >
-          {mode === "login" ? "Não tem conta? Cadastre-se" : "Já tem conta? Entrar"}
+          {mode === "login" ? (
+            "Não tem conta? Cadastre-se"
+          ) : mode === "signup" ? (
+            "Já tem conta? Entrar"
+          ) : (
+            <span className="inline-flex items-center gap-1"><ArrowLeft className="h-4 w-4" /> Voltar para entrar</span>
+          )}
         </button>
       </div>
     </main>
