@@ -210,7 +210,7 @@ function FinanceModal({
         description: count > 1 ? `${description.trim()} (${i + 1}/${count})` : description.trim(),
         value: count > 1 ? perInstallment : total,
         type,
-        category: type === "income" ? category : category,
+        category: category || categories[0] || null,
         date: d.toISOString().slice(0, 10),
         card_id: type === "card" ? cardId : null,
         total_value: count > 1 ? total : null,
