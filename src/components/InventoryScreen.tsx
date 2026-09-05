@@ -303,11 +303,11 @@ function ProductModal({
   const fileRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
-  if (draft && local?.id !== draft.id) {
+  useEffect(() => {
     setLocal(draft);
     setPreview(null);
-  }
-  if (!draft && local) setLocal(null);
+  }, [draft]);
+
 
   async function pickImage(file: File) {
     setBusy(true);
