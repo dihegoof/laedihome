@@ -197,6 +197,41 @@ export type Database = {
           },
         ]
       }
+      household_settings: {
+        Row: {
+          created_at: string
+          finance_categories: Json
+          household_id: string
+          product_categories: Json
+          theme: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          finance_categories?: Json
+          household_id?: string
+          product_categories?: Json
+          theme?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          finance_categories?: Json
+          household_id?: string
+          product_categories?: Json
+          theme?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_settings_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       households: {
         Row: {
           created_at: string
