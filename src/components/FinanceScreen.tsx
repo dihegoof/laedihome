@@ -281,7 +281,12 @@ function FinanceModal({
         </Field>
       </div>
       <Field label="Categoria">
-        <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
+        <select
+          className="field"
+          value={category || categories[0] || ""}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+
           {categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
