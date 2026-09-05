@@ -17,7 +17,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
 import { useInvalidate, useProducts, logHistory } from "@/lib/data";
-import { PRODUCT_CATEGORIES, type Product } from "@/lib/types";
+import { type Product } from "@/lib/types";
+import { useProductCategories } from "@/lib/settings";
 import { compressImage, fileToDataUrl, uploadFile } from "@/lib/storage";
 import { daysSince, qty } from "@/lib/format";
 import { parseReceipt, parseReceiptImage } from "@/lib/ai.functions";
@@ -33,7 +34,7 @@ type Draft = {
 
 const emptyDraft: Draft = {
   name: "",
-  category: PRODUCT_CATEGORIES[0],
+  category: "",
   quantity: "1",
   is_essential: false,
   image_url: null,
@@ -41,6 +42,7 @@ const emptyDraft: Draft = {
 
 export function InventoryScreen({ userName }: { userName: string }) {
   const { data: products = [], isLoading } = useProducts();
+  const categories = useProductCategories();
   const invalidate = useInvalidate();
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string>("todos");
@@ -128,7 +130,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
           />
         </div>
         <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto">
-          {["todos", ...PRODUCT_CATEGORIES].map((c) => (
+          {["todos", ...categories].map((c) => (
             <button
               key={c}
               onClick={() => setCategory(c)}
@@ -149,7 +151,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
           </button>
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => setDraft({ ...emptyDraft })}>
+          <Button size="sm" onClick={() => setDraft({ ...emptyDraft, category: categories[0] ?? "" })}>
             <Plus className="h-4 w-4" /> Novo produto
           </Button>
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
@@ -224,7 +226,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
                           setDraft({
                             id: p.id,
                             name: p.name,
-                            category: p.category ?? PRODUCT_CATEGORIES[0],
+                            category: p.category ?? categories[0] ?? "",
                             quantity: String(p.quantity),
                             is_essential: p.is_essential,
                             image_url: p.image_url,
@@ -298,6 +300,7 @@ function ProductModal({
   onSaved: () => void;
   userName: string;
 }) {
+  const categories = useProductCategories();
   const [local, setLocal] = useState<Draft | null>(draft);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -381,7 +384,7 @@ function ProductModal({
                 value={local.category}
                 onChange={(e) => setLocal({ ...local, category: e.target.value })}
               >
-                {PRODUCT_CATEGORIES.map((c) => (
+                {categories.map((c) => (
                   <option key={c}>{c}</option>
                 ))}
               </select>
