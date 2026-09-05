@@ -1,15 +1,17 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { History, Home, Package, Shirt, Wallet } from "lucide-react";
+import { History, Home, Package, Settings, Shirt, Wallet } from "lucide-react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { InventoryScreen } from "@/components/InventoryScreen";
 import { FinanceScreen } from "@/components/FinanceScreen";
 import { WardrobeScreen } from "@/components/WardrobeScreen";
 import { HistoryScreen } from "@/components/HistoryScreen";
+import { AdminScreen } from "@/components/AdminScreen";
 import { HouseholdModal } from "@/components/HouseholdModal";
 import { Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { useRealtimeSync } from "@/lib/data";
+import { useApplyTheme, useSettings } from "@/lib/settings";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,6 +40,7 @@ const TABS = [
   { key: "financas", label: "Finanças", icon: Wallet },
   { key: "armario", label: "Armário", icon: Shirt },
   { key: "historico", label: "Histórico", icon: History },
+  { key: "painel", label: "Painel", icon: Settings },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -47,6 +50,8 @@ function Index() {
   const [tab, setTab] = useState<TabKey>("despensa");
   const [houseOpen, setHouseOpen] = useState(false);
   useRealtimeSync(!!session);
+  const { data: settings } = useSettings(!!session);
+  useApplyTheme(settings?.theme);
 
   if (loading) {
     return (
@@ -87,6 +92,7 @@ function Index() {
         {tab === "financas" && <FinanceScreen userName={userName} />}
         {tab === "armario" && <WardrobeScreen userName={userName} />}
         {tab === "historico" && <HistoryScreen />}
+        {tab === "painel" && <AdminScreen userName={userName} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 backdrop-blur-md">

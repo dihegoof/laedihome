@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
 import { logHistory, useCards, useDebts, useFinances, useInvalidate } from "@/lib/data";
-import { FINANCE_CATEGORIES, type Card, type Debt, type Finance, type FinanceType } from "@/lib/types";
+import { type Card, type Debt, type Finance, type FinanceType } from "@/lib/types";
+import { useFinanceCategories } from "@/lib/settings";
 import { brl, parseCurrency } from "@/lib/format";
 import { compressImage, uploadFile } from "@/lib/storage";
 
@@ -186,7 +187,8 @@ function FinanceModal({
   const [type, setType] = useState<FinanceType>("expense");
   const [description, setDescription] = useState("");
   const [value, setValue] = useState("");
-  const [category, setCategory] = useState<string>(FINANCE_CATEGORIES[1]);
+  const categories = useFinanceCategories();
+  const [category, setCategory] = useState<string>("");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [cardId, setCardId] = useState<string>("");
   const [installments, setInstallments] = useState("1");
@@ -208,7 +210,7 @@ function FinanceModal({
         description: count > 1 ? `${description.trim()} (${i + 1}/${count})` : description.trim(),
         value: count > 1 ? perInstallment : total,
         type,
-        category: type === "income" ? category : category,
+        category: category || categories[0] || null,
         date: d.toISOString().slice(0, 10),
         card_id: type === "card" ? cardId : null,
         total_value: count > 1 ? total : null,
@@ -279,8 +281,13 @@ function FinanceModal({
         </Field>
       </div>
       <Field label="Categoria">
-        <select className="field" value={category} onChange={(e) => setCategory(e.target.value)}>
-          {FINANCE_CATEGORIES.map((c) => (
+        <select
+          className="field"
+          value={category || categories[0] || ""}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+
+          {categories.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>

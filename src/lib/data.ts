@@ -19,7 +19,9 @@ const TABLES = [
   "history",
   "wardrobe_items",
   "wardrobe_looks",
+  "household_settings",
 ] as const;
+
 
 export type SyncedTable = (typeof TABLES)[number];
 
