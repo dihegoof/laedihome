@@ -128,14 +128,94 @@ export function WardrobeScreen({ userName }: { userName: string }) {
         ))}
       </div>
 
-      {tab === "armario" && <Closet items={items} userName={userName} />}
+      {tab === "armario" && (
+        <Closet items={items} userName={userName} ownerId={ownerId === "none" ? null : ownerId} owners={owners} />
+      )}
       {tab === "montar" && <LookBuilder items={items} userName={userName} />}
-      {tab === "looks" && <SavedLooks items={items} />}
+      {tab === "looks" && <SavedLooks items={allItems} />}
+
+      <PeopleModal open={peopleOpen} onClose={() => setPeopleOpen(false)} owners={owners} userName={userName} />
     </div>
   );
 }
 
-function Closet({ items, userName }: { items: WardrobeItem[]; userName: string }) {
+function PeopleModal({
+  open,
+  onClose,
+  owners,
+  userName,
+}: {
+  open: boolean;
+  onClose: () => void;
+  owners: WardrobeOwner[];
+  userName: string;
+}) {
+  const invalidate = useInvalidate();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function add() {
+    const value = name.trim();
+    if (!value) return toast.error("Informe o nome da pessoa");
+    if (owners.some((o) => o.name.toLowerCase() === value.toLowerCase()))
+      return toast.error("Essa pessoa já existe");
+    setBusy(true);
+    const { error } = await supabase.from("wardrobe_owners").insert({ name: value });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    setName("");
+    void invalidate("wardrobe_owners");
+    void logHistory(userName, "adicionou pessoa no guarda-roupa", value);
+  }
+
+  async function remove(owner: WardrobeOwner) {
+    if (!confirm(`Remover "${owner.name}"? As roupas dela ficam como "Sem pessoa".`)) return;
+    await supabase.from("wardrobe_owners").delete().eq("id", owner.id);
+    void invalidate("wardrobe_owners");
+    void invalidate("wardrobe_items");
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Pessoas do guarda-roupa">
+      <Field label="Nova pessoa">
+        <div className="flex gap-2">
+          <input
+            className="field"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex.: Dihego"
+          />
+          <Button onClick={() => void add()} disabled={busy}>
+            {busy ? <Spinner /> : <Plus className="h-4 w-4" />}
+          </Button>
+        </div>
+      </Field>
+      <div className="space-y-2">
+        {owners.map((o) => (
+          <div key={o.id} className="flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
+            <span className="text-sm font-semibold">{o.name}</span>
+            <button onClick={() => void remove(o)} aria-label={`Remover ${o.name}`}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </button>
+          </div>
+        ))}
+        {!owners.length && <p className="text-sm text-muted-foreground">Nenhuma pessoa cadastrada.</p>}
+      </div>
+    </Modal>
+  );
+}
+
+function Closet({
+  items,
+  userName,
+  ownerId,
+  owners,
+}: {
+  items: WardrobeItem[];
+  userName: string;
+  ownerId: string | null;
+  owners: WardrobeOwner[];
+}) {
   const invalidate = useInvalidate();
   const [filter, setFilter] = useState<"todos" | WardrobeType>("todos");
   const [open, setOpen] = useState(false);
