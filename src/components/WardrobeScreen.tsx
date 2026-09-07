@@ -304,10 +304,14 @@ function ItemModal({
   open,
   onClose,
   userName,
+  ownerId,
+  owners,
 }: {
   open: boolean;
   onClose: () => void;
   userName: string;
+  ownerId: string | null;
+  owners: WardrobeOwner[];
 }) {
   const invalidate = useInvalidate();
   const fileRef = useRef<HTMLInputElement>(null);
