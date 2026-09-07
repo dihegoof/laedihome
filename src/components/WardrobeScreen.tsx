@@ -323,6 +323,11 @@ function ItemModal({
   const [occasion, setOccasion] = useState(OCCASIONS[0]);
   const [busy, setBusy] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [owner, setOwner] = useState<string>(ownerId ?? "");
+
+  useEffect(() => {
+    setOwner(ownerId ?? "");
+  }, [ownerId, open]);
 
   async function handleFile(file: File) {
     setBusy(true);
