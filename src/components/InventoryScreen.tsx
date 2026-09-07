@@ -30,6 +30,7 @@ type Draft = {
   quantity: string;
   is_essential: boolean;
   image_url: string | null;
+  notes: string;
 };
 
 const emptyDraft: Draft = {
@@ -38,6 +39,7 @@ const emptyDraft: Draft = {
   quantity: "1",
   is_essential: false,
   image_url: null,
+  notes: "",
 };
 
 export function InventoryScreen({ userName }: { userName: string }) {
