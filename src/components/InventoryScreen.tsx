@@ -235,6 +235,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
                             quantity: String(p.quantity),
                             is_essential: p.is_essential,
                             image_url: p.image_url,
+                            notes: p.notes ?? "",
                           })
                         }
                       >
