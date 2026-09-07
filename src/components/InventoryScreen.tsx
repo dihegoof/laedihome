@@ -194,6 +194,9 @@ export function InventoryScreen({ userName }: { userName: string }) {
                     {p.is_essential && <Pill tone="accent">essencial</Pill>}
                     {p.is_new && <Pill tone="primary">novo</Pill>}
                   </div>
+                  {p.notes && (
+                    <p className="mt-0.5 text-xs font-medium text-primary">{p.notes}</p>
+                  )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {Number(p.quantity) > 0 ? (
                       <>Em casa: {qty(Number(p.quantity))}</>
