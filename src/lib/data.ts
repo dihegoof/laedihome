@@ -73,6 +73,8 @@ export const useWardrobeItems = (enabled = true) =>
   useTable<WardrobeItem>("wardrobe_items", { column: "created_at", ascending: false }, enabled);
 export const useWardrobeLooks = (enabled = true) =>
   useTable<WardrobeLook>("wardrobe_looks", { column: "created_at", ascending: false }, enabled);
+export const useWardrobeOwners = (enabled = true) =>
+  useTable<WardrobeOwner>("wardrobe_owners", { column: "created_at", ascending: true }, enabled);
 
 export function useInvalidate() {
   const qc = useQueryClient();
