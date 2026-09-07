@@ -361,6 +361,7 @@ function ItemModal({
       color,
       occasion,
       image_url: imagePath,
+      owner_id: owner || null,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
