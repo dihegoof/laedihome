@@ -344,6 +344,7 @@ function ProductModal({
       quantity,
       is_essential: local.is_essential,
       image_url: local.image_url,
+      notes: local.notes.trim() || null,
       out_of_stock_since: quantity > 0 ? null : new Date().toISOString(),
     };
     const { error } = local.id
