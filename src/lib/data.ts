@@ -9,6 +9,7 @@ import type {
   Product,
   WardrobeItem,
   WardrobeLook,
+  WardrobeOwner,
 } from "@/lib/types";
 
 const TABLES = [
