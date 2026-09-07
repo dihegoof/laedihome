@@ -407,6 +407,15 @@ function ProductModal({
             </Field>
           </div>
 
+          <Field label="Observação (ex.: congelado em 07/09)">
+            <textarea
+              className="field min-h-16"
+              value={local.notes}
+              onChange={(e) => setLocal({ ...local, notes: e.target.value })}
+              placeholder="Ex.: carne em cubos, freezer 07/09/2026"
+            />
+          </Field>
+
           <label className="flex items-center gap-2 py-1 text-sm font-medium">
             <input
               type="checkbox"
