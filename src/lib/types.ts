@@ -8,6 +8,7 @@ export type Product = {
   is_new: boolean;
   out_of_stock_since: string | null;
   image_url: string | null;
+  notes: string | null;
   created_at: string;
 };
 
