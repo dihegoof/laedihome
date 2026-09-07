@@ -20,6 +20,7 @@ const TABLES = [
   "history",
   "wardrobe_items",
   "wardrobe_looks",
+  "wardrobe_owners",
   "household_settings",
 ] as const;
 
