@@ -46,10 +46,66 @@ type WTab = "armario" | "montar" | "looks";
 
 export function WardrobeScreen({ userName }: { userName: string }) {
   const [tab, setTab] = useState<WTab>("armario");
-  const { data: items = [] } = useWardrobeItems();
+  const { data: allItems = [] } = useWardrobeItems();
+  const { data: owners = [] } = useWardrobeOwners();
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+
+  const hasUnassigned = allItems.some((i) => !i.owner_id);
+
+  useEffect(() => {
+    if (ownerId && owners.some((o) => o.id === ownerId)) return;
+    if (ownerId === "none" && hasUnassigned) return;
+    setOwnerId(owners[0]?.id ?? (hasUnassigned ? "none" : null));
+  }, [owners, ownerId, hasUnassigned]);
+
+  const items = useMemo(
+    () => allItems.filter((i) => (ownerId === "none" ? !i.owner_id : i.owner_id === ownerId)),
+    [allItems, ownerId],
+  );
 
   return (
     <div className="space-y-4">
+      <div className="surface space-y-2 p-3">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            <Users className="h-3.5 w-3.5" /> Guarda-roupa de
+          </p>
+          <button
+            onClick={() => setPeopleOpen(true)}
+            className="flex items-center gap-1 text-xs font-semibold text-primary"
+          >
+            <UserPlus className="h-3.5 w-3.5" /> Pessoas
+          </button>
+        </div>
+        <div className="no-scrollbar flex gap-2 overflow-x-auto">
+          {owners.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => setOwnerId(o.id)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                ownerId === o.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+              }`}
+            >
+              {o.name}
+            </button>
+          ))}
+          {hasUnassigned && (
+            <button
+              onClick={() => setOwnerId("none")}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                ownerId === "none" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+              }`}
+            >
+              Sem pessoa
+            </button>
+          )}
+          {!owners.length && !hasUnassigned && (
+            <p className="text-xs text-muted-foreground">Crie uma pessoa para começar.</p>
+          )}
+        </div>
+      </div>
+
       <div className="flex gap-2">
         {(
           [
