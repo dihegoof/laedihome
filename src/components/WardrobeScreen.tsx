@@ -418,6 +418,16 @@ function ItemModal({
       <Field label="Nome">
         <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
+      <Field label="Pessoa">
+        <select className="field" value={owner} onChange={(e) => setOwner(e.target.value)}>
+          <option value="">Sem pessoa</option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+      </Field>
       <Field label="Tipo">
         <select className="field" value={type} onChange={(e) => setType(e.target.value as WardrobeType)}>
           {WARDROBE_TYPES.map((t) => (
