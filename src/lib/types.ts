@@ -8,6 +8,7 @@ export type Product = {
   is_new: boolean;
   out_of_stock_since: string | null;
   image_url: string | null;
+  notes: string | null;
   created_at: string;
 };
 
@@ -65,6 +66,13 @@ export type HistoryEntry = {
 
 export type WardrobeType = "blusa" | "calca" | "vestido" | "sapato" | "sobreposicao";
 
+export type WardrobeOwner = {
+  id: string;
+  household_id: string;
+  name: string;
+  created_at: string;
+};
+
 export type WardrobeItem = {
   id: string;
   household_id: string;
@@ -73,6 +81,7 @@ export type WardrobeItem = {
   color: string | null;
   occasion: string | null;
   image_url: string | null;
+  owner_id: string | null;
   times_used: number;
   last_used: string | null;
   created_at: string;

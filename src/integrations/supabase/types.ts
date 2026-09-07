@@ -263,6 +263,7 @@ export type Database = {
           is_essential: boolean
           is_new: boolean
           name: string
+          notes: string | null
           out_of_stock_since: string | null
           quantity: number
         }
@@ -275,6 +276,7 @@ export type Database = {
           is_essential?: boolean
           is_new?: boolean
           name: string
+          notes?: string | null
           out_of_stock_since?: string | null
           quantity?: number
         }
@@ -287,6 +289,7 @@ export type Database = {
           is_essential?: boolean
           is_new?: boolean
           name?: string
+          notes?: string | null
           out_of_stock_since?: string | null
           quantity?: number
         }
@@ -342,6 +345,7 @@ export type Database = {
           last_used: string | null
           name: string
           occasion: string | null
+          owner_id: string | null
           times_used: number
           type: string
         }
@@ -354,6 +358,7 @@ export type Database = {
           last_used?: string | null
           name: string
           occasion?: string | null
+          owner_id?: string | null
           times_used?: number
           type: string
         }
@@ -366,6 +371,7 @@ export type Database = {
           last_used?: string | null
           name?: string
           occasion?: string | null
+          owner_id?: string | null
           times_used?: number
           type?: string
         }
@@ -375,6 +381,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "wardrobe_items_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "wardrobe_owners"
             referencedColumns: ["id"]
           },
         ]
@@ -404,6 +417,35 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "wardrobe_looks_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      wardrobe_owners: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wardrobe_owners_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"

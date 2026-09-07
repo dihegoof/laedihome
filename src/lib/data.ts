@@ -9,6 +9,7 @@ import type {
   Product,
   WardrobeItem,
   WardrobeLook,
+  WardrobeOwner,
 } from "@/lib/types";
 
 const TABLES = [
@@ -19,6 +20,7 @@ const TABLES = [
   "history",
   "wardrobe_items",
   "wardrobe_looks",
+  "wardrobe_owners",
   "household_settings",
 ] as const;
 
@@ -71,6 +73,8 @@ export const useWardrobeItems = (enabled = true) =>
   useTable<WardrobeItem>("wardrobe_items", { column: "created_at", ascending: false }, enabled);
 export const useWardrobeLooks = (enabled = true) =>
   useTable<WardrobeLook>("wardrobe_looks", { column: "created_at", ascending: false }, enabled);
+export const useWardrobeOwners = (enabled = true) =>
+  useTable<WardrobeOwner>("wardrobe_owners", { column: "created_at", ascending: true }, enabled);
 
 export function useInvalidate() {
   const qc = useQueryClient();

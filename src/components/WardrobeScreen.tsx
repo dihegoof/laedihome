@@ -1,11 +1,23 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Plus, Shirt, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { Camera, Plus, Shirt, Sparkles, Trash2, UserPlus, Users, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
-import { logHistory, useInvalidate, useWardrobeItems, useWardrobeLooks } from "@/lib/data";
-import { WARDROBE_COLORS, WARDROBE_TYPES, type WardrobeItem, type WardrobeType } from "@/lib/types";
+import {
+  logHistory,
+  useInvalidate,
+  useWardrobeItems,
+  useWardrobeLooks,
+  useWardrobeOwners,
+} from "@/lib/data";
+import {
+  WARDROBE_COLORS,
+  WARDROBE_TYPES,
+  type WardrobeItem,
+  type WardrobeOwner,
+  type WardrobeType,
+} from "@/lib/types";
 import { compressImage, fileToDataUrl, uploadFile } from "@/lib/storage";
 import { analyzeGarment } from "@/lib/ai.functions";
 
@@ -34,10 +46,66 @@ type WTab = "armario" | "montar" | "looks";
 
 export function WardrobeScreen({ userName }: { userName: string }) {
   const [tab, setTab] = useState<WTab>("armario");
-  const { data: items = [] } = useWardrobeItems();
+  const { data: allItems = [] } = useWardrobeItems();
+  const { data: owners = [] } = useWardrobeOwners();
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+
+  const hasUnassigned = allItems.some((i) => !i.owner_id);
+
+  useEffect(() => {
+    if (ownerId && owners.some((o) => o.id === ownerId)) return;
+    if (ownerId === "none" && hasUnassigned) return;
+    setOwnerId(owners[0]?.id ?? (hasUnassigned ? "none" : null));
+  }, [owners, ownerId, hasUnassigned]);
+
+  const items = useMemo(
+    () => allItems.filter((i) => (ownerId === "none" ? !i.owner_id : i.owner_id === ownerId)),
+    [allItems, ownerId],
+  );
 
   return (
     <div className="space-y-4">
+      <div className="surface space-y-2 p-3">
+        <div className="flex items-center justify-between">
+          <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+            <Users className="h-3.5 w-3.5" /> Guarda-roupa de
+          </p>
+          <button
+            onClick={() => setPeopleOpen(true)}
+            className="flex items-center gap-1 text-xs font-semibold text-primary"
+          >
+            <UserPlus className="h-3.5 w-3.5" /> Pessoas
+          </button>
+        </div>
+        <div className="no-scrollbar flex gap-2 overflow-x-auto">
+          {owners.map((o) => (
+            <button
+              key={o.id}
+              onClick={() => setOwnerId(o.id)}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                ownerId === o.id ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+              }`}
+            >
+              {o.name}
+            </button>
+          ))}
+          {hasUnassigned && (
+            <button
+              onClick={() => setOwnerId("none")}
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap ${
+                ownerId === "none" ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+              }`}
+            >
+              Sem pessoa
+            </button>
+          )}
+          {!owners.length && !hasUnassigned && (
+            <p className="text-xs text-muted-foreground">Crie uma pessoa para começar.</p>
+          )}
+        </div>
+      </div>
+
       <div className="flex gap-2">
         {(
           [
@@ -60,14 +128,94 @@ export function WardrobeScreen({ userName }: { userName: string }) {
         ))}
       </div>
 
-      {tab === "armario" && <Closet items={items} userName={userName} />}
+      {tab === "armario" && (
+        <Closet items={items} userName={userName} ownerId={ownerId === "none" ? null : ownerId} owners={owners} />
+      )}
       {tab === "montar" && <LookBuilder items={items} userName={userName} />}
-      {tab === "looks" && <SavedLooks items={items} />}
+      {tab === "looks" && <SavedLooks items={allItems} />}
+
+      <PeopleModal open={peopleOpen} onClose={() => setPeopleOpen(false)} owners={owners} userName={userName} />
     </div>
   );
 }
 
-function Closet({ items, userName }: { items: WardrobeItem[]; userName: string }) {
+function PeopleModal({
+  open,
+  onClose,
+  owners,
+  userName,
+}: {
+  open: boolean;
+  onClose: () => void;
+  owners: WardrobeOwner[];
+  userName: string;
+}) {
+  const invalidate = useInvalidate();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function add() {
+    const value = name.trim();
+    if (!value) return toast.error("Informe o nome da pessoa");
+    if (owners.some((o) => o.name.toLowerCase() === value.toLowerCase()))
+      return toast.error("Essa pessoa já existe");
+    setBusy(true);
+    const { error } = await supabase.from("wardrobe_owners").insert({ name: value });
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    setName("");
+    void invalidate("wardrobe_owners");
+    void logHistory(userName, "adicionou pessoa no guarda-roupa", value);
+  }
+
+  async function remove(owner: WardrobeOwner) {
+    if (!confirm(`Remover "${owner.name}"? As roupas dela ficam como "Sem pessoa".`)) return;
+    await supabase.from("wardrobe_owners").delete().eq("id", owner.id);
+    void invalidate("wardrobe_owners");
+    void invalidate("wardrobe_items");
+  }
+
+  return (
+    <Modal open={open} onClose={onClose} title="Pessoas do guarda-roupa">
+      <Field label="Nova pessoa">
+        <div className="flex gap-2">
+          <input
+            className="field"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex.: Dihego"
+          />
+          <Button onClick={() => void add()} disabled={busy}>
+            {busy ? <Spinner /> : <Plus className="h-4 w-4" />}
+          </Button>
+        </div>
+      </Field>
+      <div className="space-y-2">
+        {owners.map((o) => (
+          <div key={o.id} className="flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
+            <span className="text-sm font-semibold">{o.name}</span>
+            <button onClick={() => void remove(o)} aria-label={`Remover ${o.name}`}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </button>
+          </div>
+        ))}
+        {!owners.length && <p className="text-sm text-muted-foreground">Nenhuma pessoa cadastrada.</p>}
+      </div>
+    </Modal>
+  );
+}
+
+function Closet({
+  items,
+  userName,
+  ownerId,
+  owners,
+}: {
+  items: WardrobeItem[];
+  userName: string;
+  ownerId: string | null;
+  owners: WardrobeOwner[];
+}) {
   const invalidate = useInvalidate();
   const [filter, setFilter] = useState<"todos" | WardrobeType>("todos");
   const [open, setOpen] = useState(false);
@@ -97,7 +245,13 @@ function Closet({ items, userName }: { items: WardrobeItem[]; userName: string }
         ))}
       </div>
 
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        onClick={() => {
+          if (!ownerId) return toast.error("Crie/selecione uma pessoa antes de adicionar peças");
+          setOpen(true);
+        }}
+      >
         <Plus className="h-4 w-4" /> Nova peça
       </Button>
 
@@ -135,7 +289,13 @@ function Closet({ items, userName }: { items: WardrobeItem[]; userName: string }
         ))}
       </div>
 
-      <ItemModal open={open} onClose={() => setOpen(false)} userName={userName} />
+      <ItemModal
+        open={open}
+        onClose={() => setOpen(false)}
+        userName={userName}
+        ownerId={ownerId}
+        owners={owners}
+      />
     </div>
   );
 }
@@ -144,10 +304,14 @@ function ItemModal({
   open,
   onClose,
   userName,
+  ownerId,
+  owners,
 }: {
   open: boolean;
   onClose: () => void;
   userName: string;
+  ownerId: string | null;
+  owners: WardrobeOwner[];
 }) {
   const invalidate = useInvalidate();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -159,6 +323,11 @@ function ItemModal({
   const [occasion, setOccasion] = useState(OCCASIONS[0]);
   const [busy, setBusy] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [owner, setOwner] = useState<string>(ownerId ?? "");
+
+  useEffect(() => {
+    setOwner(ownerId ?? "");
+  }, [ownerId, open]);
 
   async function handleFile(file: File) {
     setBusy(true);
@@ -192,6 +361,7 @@ function ItemModal({
       color,
       occasion,
       image_url: imagePath,
+      owner_id: owner || null,
     });
     setBusy(false);
     if (error) return toast.error(error.message);
@@ -247,6 +417,16 @@ function ItemModal({
 
       <Field label="Nome">
         <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
+      </Field>
+      <Field label="Pessoa">
+        <select className="field" value={owner} onChange={(e) => setOwner(e.target.value)}>
+          <option value="">Sem pessoa</option>
+          {owners.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
       </Field>
       <Field label="Tipo">
         <select className="field" value={type} onChange={(e) => setType(e.target.value as WardrobeType)}>

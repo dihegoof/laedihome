@@ -30,6 +30,7 @@ type Draft = {
   quantity: string;
   is_essential: boolean;
   image_url: string | null;
+  notes: string;
 };
 
 const emptyDraft: Draft = {
@@ -38,6 +39,7 @@ const emptyDraft: Draft = {
   quantity: "1",
   is_essential: false,
   image_url: null,
+  notes: "",
 };
 
 export function InventoryScreen({ userName }: { userName: string }) {
@@ -192,6 +194,9 @@ export function InventoryScreen({ userName }: { userName: string }) {
                     {p.is_essential && <Pill tone="accent">essencial</Pill>}
                     {p.is_new && <Pill tone="primary">novo</Pill>}
                   </div>
+                  {p.notes && (
+                    <p className="mt-0.5 text-xs font-medium text-primary">{p.notes}</p>
+                  )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {Number(p.quantity) > 0 ? (
                       <>Em casa: {qty(Number(p.quantity))}</>
@@ -230,6 +235,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
                             quantity: String(p.quantity),
                             is_essential: p.is_essential,
                             image_url: p.image_url,
+                            notes: p.notes ?? "",
                           })
                         }
                       >
@@ -338,6 +344,7 @@ function ProductModal({
       quantity,
       is_essential: local.is_essential,
       image_url: local.image_url,
+      notes: local.notes.trim() || null,
       out_of_stock_since: quantity > 0 ? null : new Date().toISOString(),
     };
     const { error } = local.id
@@ -399,6 +406,15 @@ function ProductModal({
               />
             </Field>
           </div>
+
+          <Field label="Observação (ex.: congelado em 07/09)">
+            <textarea
+              className="field min-h-16"
+              value={local.notes}
+              onChange={(e) => setLocal({ ...local, notes: e.target.value })}
+              placeholder="Ex.: carne em cubos, freezer 07/09/2026"
+            />
+          </Field>
 
           <label className="flex items-center gap-2 py-1 text-sm font-medium">
             <input
