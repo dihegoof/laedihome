@@ -245,7 +245,13 @@ function Closet({
         ))}
       </div>
 
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button
+        size="sm"
+        onClick={() => {
+          if (!ownerId) return toast.error("Crie/selecione uma pessoa antes de adicionar peças");
+          setOpen(true);
+        }}
+      >
         <Plus className="h-4 w-4" /> Nova peça
       </Button>
 
