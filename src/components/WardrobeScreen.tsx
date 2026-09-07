@@ -1,11 +1,23 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Plus, Shirt, Sparkles, Trash2, Wand2 } from "lucide-react";
+import { Camera, Plus, Shirt, Sparkles, Trash2, UserPlus, Users, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
-import { logHistory, useInvalidate, useWardrobeItems, useWardrobeLooks } from "@/lib/data";
-import { WARDROBE_COLORS, WARDROBE_TYPES, type WardrobeItem, type WardrobeType } from "@/lib/types";
+import {
+  logHistory,
+  useInvalidate,
+  useWardrobeItems,
+  useWardrobeLooks,
+  useWardrobeOwners,
+} from "@/lib/data";
+import {
+  WARDROBE_COLORS,
+  WARDROBE_TYPES,
+  type WardrobeItem,
+  type WardrobeOwner,
+  type WardrobeType,
+} from "@/lib/types";
 import { compressImage, fileToDataUrl, uploadFile } from "@/lib/storage";
 import { analyzeGarment } from "@/lib/ai.functions";
 
