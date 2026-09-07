@@ -289,7 +289,13 @@ function Closet({
         ))}
       </div>
 
-      <ItemModal open={open} onClose={() => setOpen(false)} userName={userName} />
+      <ItemModal
+        open={open}
+        onClose={() => setOpen(false)}
+        userName={userName}
+        ownerId={ownerId}
+        owners={owners}
+      />
     </div>
   );
 }
