@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      appointments: {
+        Row: {
+          audio_url: string | null
+          created_at: string
+          created_by: string | null
+          created_by_name: string
+          duration_seconds: number | null
+          household_id: string
+          id: string
+          scheduled_at: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          audio_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          duration_seconds?: number | null
+          household_id?: string
+          id?: string
+          scheduled_at: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          audio_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          duration_seconds?: number | null
+          household_id?: string
+          id?: string
+          scheduled_at?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "appointments_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cards: {
         Row: {
           card_limit: number
@@ -238,18 +285,21 @@ export type Database = {
           id: string
           invite_code: string
           name: string
+          owner_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           invite_code: string
           name?: string
+          owner_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           invite_code?: string
           name?: string
+          owner_id?: string | null
         }
         Relationships: []
       }
@@ -387,7 +437,7 @@ export type Database = {
             foreignKeyName: "wardrobe_items_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
-            referencedRelation: "wardrobe_owners"
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -417,35 +467,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "wardrobe_looks_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      wardrobe_owners: {
-        Row: {
-          created_at: string
-          household_id: string
-          id: string
-          name: string
-        }
-        Insert: {
-          created_at?: string
-          household_id?: string
-          id?: string
-          name: string
-        }
-        Update: {
-          created_at?: string
-          household_id?: string
-          id?: string
-          name?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "wardrobe_owners_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
