@@ -175,7 +175,7 @@ function Closet({
       <Button
         size="sm"
         onClick={() => {
-          if (!ownerId) return toast.error("Crie/selecione uma pessoa antes de adicionar peças");
+          if (!ownerId) return toast.error("Selecione uma pessoa antes de adicionar peças");
           setOpen(true);
         }}
       >
