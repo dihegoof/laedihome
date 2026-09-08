@@ -66,11 +66,24 @@ export type HistoryEntry = {
 
 export type WardrobeType = "blusa" | "calca" | "vestido" | "sapato" | "sobreposicao";
 
-export type WardrobeOwner = {
+/** A member of the household (row from profiles). */
+export type Member = {
+  id: string;
+  name: string;
+  email: string;
+};
+
+export type Appointment = {
   id: string;
   household_id: string;
-  name: string;
+  title: string | null;
+  scheduled_at: string;
+  audio_url: string | null;
+  duration_seconds: number | null;
+  created_by: string | null;
+  created_by_name: string;
   created_at: string;
+  updated_at: string;
 };
 
 export type WardrobeItem = {

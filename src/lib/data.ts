@@ -2,14 +2,15 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type {
+  Appointment,
   Card,
   Debt,
   Finance,
   HistoryEntry,
+  Member,
   Product,
   WardrobeItem,
   WardrobeLook,
-  WardrobeOwner,
 } from "@/lib/types";
 
 const TABLES = [
@@ -20,7 +21,8 @@ const TABLES = [
   "history",
   "wardrobe_items",
   "wardrobe_looks",
-  "wardrobe_owners",
+  "profiles",
+  "appointments",
   "household_settings",
 ] as const;
 
@@ -73,8 +75,23 @@ export const useWardrobeItems = (enabled = true) =>
   useTable<WardrobeItem>("wardrobe_items", { column: "created_at", ascending: false }, enabled);
 export const useWardrobeLooks = (enabled = true) =>
   useTable<WardrobeLook>("wardrobe_looks", { column: "created_at", ascending: false }, enabled);
-export const useWardrobeOwners = (enabled = true) =>
-  useTable<WardrobeOwner>("wardrobe_owners", { column: "created_at", ascending: true }, enabled);
+export const useAppointments = (enabled = true) =>
+  useTable<Appointment>("appointments", { column: "scheduled_at", ascending: true }, enabled);
+
+/** Everyone who has an account in this household. */
+export const useMembers = (enabled = true) =>
+  useQuery({
+    queryKey: ["profiles"],
+    enabled,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id,name,email")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Member[];
+    },
+  });
 
 export function useInvalidate() {
   const qc = useQueryClient();
