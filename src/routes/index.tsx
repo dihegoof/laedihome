@@ -1,15 +1,18 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { History, Home, Package, Settings, Shirt, Wallet } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { CalendarClock, History, Home, Package, Shield, Shirt, Wallet } from "lucide-react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { InventoryScreen } from "@/components/InventoryScreen";
 import { FinanceScreen } from "@/components/FinanceScreen";
 import { WardrobeScreen } from "@/components/WardrobeScreen";
 import { HistoryScreen } from "@/components/HistoryScreen";
 import { AdminScreen } from "@/components/AdminScreen";
+import { AppointmentsScreen } from "@/components/AppointmentsScreen";
 import { HouseholdModal } from "@/components/HouseholdModal";
 import { Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/data";
 import { useApplyTheme, useSettings } from "@/lib/settings";
 
@@ -39,19 +42,33 @@ const TABS = [
   { key: "despensa", label: "Despensa", icon: Package },
   { key: "financas", label: "Finanças", icon: Wallet },
   { key: "armario", label: "Armário", icon: Shirt },
+  { key: "compromissos", label: "Agenda", icon: CalendarClock },
   { key: "historico", label: "Histórico", icon: History },
-  { key: "painel", label: "Painel", icon: Settings },
 ] as const;
 
-type TabKey = (typeof TABS)[number]["key"];
+type TabKey = (typeof TABS)[number]["key"] | "painel";
 
 function Index() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, user, loading } = useAuth();
   const [tab, setTab] = useState<TabKey>("despensa");
   const [houseOpen, setHouseOpen] = useState(false);
   useRealtimeSync(!!session);
   const { data: settings } = useSettings(!!session);
   useApplyTheme(settings?.theme);
+
+  const { data: household } = useQuery({
+    queryKey: ["household-owner", profile?.household_id],
+    enabled: !!profile?.household_id,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("households")
+        .select("id,owner_id")
+        .eq("id", profile!.household_id!)
+        .maybeSingle();
+      return data;
+    },
+  });
+  const isOwner = !!user && !!household && household.owner_id === user.id;
 
   if (loading) {
     return (
@@ -77,6 +94,19 @@ function Index() {
               <h1 className="text-lg leading-tight">Nossa Casa</h1>
               <p className="text-xs text-muted-foreground">Olá, {userName}</p>
             </div>
+            {isOwner && (
+              <button
+                onClick={() => setTab(tab === "painel" ? "despensa" : "painel")}
+                aria-label="Painel do administrador"
+                className={`ml-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide transition-colors ${
+                  tab === "painel"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary-soft text-primary hover:brightness-95"
+                }`}
+              >
+                <Shield className="h-3.5 w-3.5" /> ADM
+              </button>
+            )}
           </div>
           <button
             onClick={() => setHouseOpen(true)}
@@ -91,8 +121,9 @@ function Index() {
         {tab === "despensa" && <InventoryScreen userName={userName} />}
         {tab === "financas" && <FinanceScreen userName={userName} />}
         {tab === "armario" && <WardrobeScreen userName={userName} />}
+        {tab === "compromissos" && <AppointmentsScreen userName={userName} />}
         {tab === "historico" && <HistoryScreen />}
-        {tab === "painel" && <AdminScreen userName={userName} />}
+        {tab === "painel" && isOwner && <AdminScreen userName={userName} />}
       </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 backdrop-blur-md">

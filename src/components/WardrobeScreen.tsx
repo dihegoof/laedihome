@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, Plus, Shirt, Sparkles, Trash2, UserPlus, Users, Wand2 } from "lucide-react";
+import { Camera, Plus, Shirt, Sparkles, Trash2, Users, Wand2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
+import { useAuth } from "@/hooks/useAuth";
 import {
   logHistory,
   useInvalidate,
+  useMembers,
   useWardrobeItems,
   useWardrobeLooks,
-  useWardrobeOwners,
 } from "@/lib/data";
 import {
   WARDROBE_COLORS,
   WARDROBE_TYPES,
+  type Member as WardrobeOwner,
   type WardrobeItem,
-  type WardrobeOwner,
   type WardrobeType,
 } from "@/lib/types";
 import { compressImage, fileToDataUrl, uploadFile } from "@/lib/storage";
@@ -45,19 +46,20 @@ function colorsMatch(a: string | null, b: string | null) {
 type WTab = "armario" | "montar" | "looks";
 
 export function WardrobeScreen({ userName }: { userName: string }) {
+  const { user } = useAuth();
   const [tab, setTab] = useState<WTab>("armario");
   const { data: allItems = [] } = useWardrobeItems();
-  const { data: owners = [] } = useWardrobeOwners();
+  const { data: owners = [] } = useMembers();
   const [ownerId, setOwnerId] = useState<string | null>(null);
-  const [peopleOpen, setPeopleOpen] = useState(false);
 
   const hasUnassigned = allItems.some((i) => !i.owner_id);
 
   useEffect(() => {
     if (ownerId && owners.some((o) => o.id === ownerId)) return;
     if (ownerId === "none" && hasUnassigned) return;
-    setOwnerId(owners[0]?.id ?? (hasUnassigned ? "none" : null));
-  }, [owners, ownerId, hasUnassigned]);
+    const mine = user?.id && owners.some((o) => o.id === user.id) ? user.id : null;
+    setOwnerId(mine ?? owners[0]?.id ?? (hasUnassigned ? "none" : null));
+  }, [owners, ownerId, hasUnassigned, user?.id]);
 
   const items = useMemo(
     () => allItems.filter((i) => (ownerId === "none" ? !i.owner_id : i.owner_id === ownerId)),
@@ -67,17 +69,9 @@ export function WardrobeScreen({ userName }: { userName: string }) {
   return (
     <div className="space-y-4">
       <div className="surface space-y-2 p-3">
-        <div className="flex items-center justify-between">
-          <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
-            <Users className="h-3.5 w-3.5" /> Guarda-roupa de
-          </p>
-          <button
-            onClick={() => setPeopleOpen(true)}
-            className="flex items-center gap-1 text-xs font-semibold text-primary"
-          >
-            <UserPlus className="h-3.5 w-3.5" /> Pessoas
-          </button>
-        </div>
+        <p className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          <Users className="h-3.5 w-3.5" /> Guarda-roupa de
+        </p>
         <div className="no-scrollbar flex gap-2 overflow-x-auto">
           {owners.map((o) => (
             <button
@@ -88,6 +82,7 @@ export function WardrobeScreen({ userName }: { userName: string }) {
               }`}
             >
               {o.name}
+              {o.id === user?.id ? " (eu)" : ""}
             </button>
           ))}
           {hasUnassigned && (
@@ -100,10 +95,10 @@ export function WardrobeScreen({ userName }: { userName: string }) {
               Sem pessoa
             </button>
           )}
-          {!owners.length && !hasUnassigned && (
-            <p className="text-xs text-muted-foreground">Crie uma pessoa para começar.</p>
-          )}
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          Quem entrar na casa pelo código de convite aparece aqui automaticamente.
+        </p>
       </div>
 
       <div className="flex gap-2">
@@ -133,75 +128,7 @@ export function WardrobeScreen({ userName }: { userName: string }) {
       )}
       {tab === "montar" && <LookBuilder items={items} userName={userName} />}
       {tab === "looks" && <SavedLooks items={allItems} />}
-
-      <PeopleModal open={peopleOpen} onClose={() => setPeopleOpen(false)} owners={owners} userName={userName} />
     </div>
-  );
-}
-
-function PeopleModal({
-  open,
-  onClose,
-  owners,
-  userName,
-}: {
-  open: boolean;
-  onClose: () => void;
-  owners: WardrobeOwner[];
-  userName: string;
-}) {
-  const invalidate = useInvalidate();
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function add() {
-    const value = name.trim();
-    if (!value) return toast.error("Informe o nome da pessoa");
-    if (owners.some((o) => o.name.toLowerCase() === value.toLowerCase()))
-      return toast.error("Essa pessoa já existe");
-    setBusy(true);
-    const { error } = await supabase.from("wardrobe_owners").insert({ name: value });
-    setBusy(false);
-    if (error) return toast.error(error.message);
-    setName("");
-    void invalidate("wardrobe_owners");
-    void logHistory(userName, "adicionou pessoa no guarda-roupa", value);
-  }
-
-  async function remove(owner: WardrobeOwner) {
-    if (!confirm(`Remover "${owner.name}"? As roupas dela ficam como "Sem pessoa".`)) return;
-    await supabase.from("wardrobe_owners").delete().eq("id", owner.id);
-    void invalidate("wardrobe_owners");
-    void invalidate("wardrobe_items");
-  }
-
-  return (
-    <Modal open={open} onClose={onClose} title="Pessoas do guarda-roupa">
-      <Field label="Nova pessoa">
-        <div className="flex gap-2">
-          <input
-            className="field"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ex.: Dihego"
-          />
-          <Button onClick={() => void add()} disabled={busy}>
-            {busy ? <Spinner /> : <Plus className="h-4 w-4" />}
-          </Button>
-        </div>
-      </Field>
-      <div className="space-y-2">
-        {owners.map((o) => (
-          <div key={o.id} className="flex items-center justify-between rounded-xl bg-secondary px-3 py-2">
-            <span className="text-sm font-semibold">{o.name}</span>
-            <button onClick={() => void remove(o)} aria-label={`Remover ${o.name}`}>
-              <Trash2 className="h-4 w-4 text-destructive" />
-            </button>
-          </div>
-        ))}
-        {!owners.length && <p className="text-sm text-muted-foreground">Nenhuma pessoa cadastrada.</p>}
-      </div>
-    </Modal>
   );
 }
 
@@ -248,7 +175,7 @@ function Closet({
       <Button
         size="sm"
         onClick={() => {
-          if (!ownerId) return toast.error("Crie/selecione uma pessoa antes de adicionar peças");
+          if (!ownerId) return toast.error("Selecione uma pessoa antes de adicionar peças");
           setOpen(true);
         }}
       >
