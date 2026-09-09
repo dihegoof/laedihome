@@ -119,21 +119,34 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
         )}
       </div>
 
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nome, data ou horário"
+          className="field w-full pl-9"
+        />
+      </div>
+
       {isLoading && <EmptyState>Carregando agenda...</EmptyState>}
 
       {!isLoading && !groups.length && (
         <EmptyState>
           <CalendarClock className="mx-auto mb-2 h-6 w-6" />
-          Nenhum compromisso por vir. Grave um por áudio!
+          {term ? "Nenhum compromisso encontrado." : "Nenhum compromisso por vir. Grave um por áudio!"}
         </EmptyState>
       )}
 
       {groups.map(([key, items]) => {
         const { label, tag } = dayLabel(key);
+        const titleClass =
+          tag === "Hoje" ? "text-lg font-bold" : tag === "Amanhã" ? "text-base font-semibold" : "text-sm font-semibold";
         return (
           <section key={key} className="space-y-2">
             <header className="flex items-center gap-2 px-1">
-              <h3 className="text-sm font-semibold">{label}</h3>
+              <h3 className={titleClass}>{label}</h3>
               {tag === "Hoje" && <Pill tone="primary">Hoje</Pill>}
               {tag === "Amanhã" && <Pill tone="accent">Amanhã</Pill>}
               {tag === "Passou" && <Pill>Passou</Pill>}
