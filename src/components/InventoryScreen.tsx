@@ -469,7 +469,7 @@ function ImportModal({
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [items, setItems] = useState<{ name: string; quantity: number }[]>([]);
+  const [items, setItems] = useState<{ name: string; quantity: number; forceNew?: boolean }[]>([]);
   const [total, setTotal] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
