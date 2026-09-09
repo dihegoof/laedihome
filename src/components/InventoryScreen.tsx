@@ -154,8 +154,8 @@ export function InventoryScreen({ userName }: { userName: string }) {
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             <Sparkles className="h-4 w-4" /> Importar nota
           </Button>
-          <Button size="sm" variant="outline" onClick={copyMissing}>
-            <Copy className="h-4 w-4" /> Copiar lista
+          <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
+            <Copy className="h-4 w-4" /> Gerar lista
           </Button>
         </div>
       </div>
