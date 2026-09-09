@@ -595,32 +595,66 @@ function ImportModal({
         </>
       ) : (
         <div className="space-y-2">
-          {items.map((item, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                className="field flex-1"
-                value={item.name}
-                onChange={(e) =>
-                  setItems(items.map((it, j) => (i === j ? { ...it, name: e.target.value } : it)))
-                }
-              />
-              <input
-                className="field w-20"
-                inputMode="decimal"
-                value={item.quantity}
-                onChange={(e) =>
-                  setItems(
-                    items.map((it, j) =>
-                      i === j ? { ...it, quantity: Number(e.target.value.replace(",", ".")) || 0 } : it,
-                    ),
-                  )
-                }
-              />
-              <Button size="icon" variant="ghost" onClick={() => setItems(items.filter((_, j) => j !== i))}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
-          ))}
+          {items.map((item, i) => {
+            const match = item.forceNew ? null : findExistingProduct(products, item.name);
+            return (
+              <div key={i} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="field flex-1"
+                    value={item.name}
+                    onChange={(e) =>
+                      setItems(items.map((it, j) => (i === j ? { ...it, name: e.target.value } : it)))
+                    }
+                  />
+                  <input
+                    className="field w-20"
+                    inputMode="decimal"
+                    value={item.quantity}
+                    onChange={(e) =>
+                      setItems(
+                        items.map((it, j) =>
+                          i === j ? { ...it, quantity: Number(e.target.value.replace(",", ".")) || 0 } : it,
+                        ),
+                      )
+                    }
+                  />
+                  <Button size="icon" variant="ghost" onClick={() => setItems(items.filter((_, j) => j !== i))}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 pl-1 text-xs">
+                  {match ? (
+                    <>
+                      <span className="text-primary">Vai somar em "{match.name}"</span>
+                      <button
+                        className="font-semibold text-muted-foreground underline"
+                        onClick={() =>
+                          setItems(items.map((it, j) => (i === j ? { ...it, forceNew: true } : it)))
+                        }
+                      >
+                        criar separado
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-muted-foreground">Novo produto na despensa</span>
+                      {item.forceNew && (
+                        <button
+                          className="font-semibold text-muted-foreground underline"
+                          onClick={() =>
+                            setItems(items.map((it, j) => (i === j ? { ...it, forceNew: false } : it)))
+                          }
+                        >
+                          juntar com existente
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
           <Field label="Valor total da compra (R$)">
             <input
               className="field"
