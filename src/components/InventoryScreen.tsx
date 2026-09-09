@@ -51,6 +51,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
