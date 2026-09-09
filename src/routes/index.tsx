@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, History, Home, Package, Shield, Shirt, Wallet } from "lucide-react";
+import { CalendarClock, History, Home, Package, Plus, Settings, Shirt, UserPlus, Wallet } from "lucide-react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { InventoryScreen } from "@/components/InventoryScreen";
 import { FinanceScreen } from "@/components/FinanceScreen";
@@ -104,15 +104,16 @@ function Index() {
                     : "bg-primary-soft text-primary hover:brightness-95"
                 }`}
               >
-                <Shield className="h-3.5 w-3.5" /> ADM
+              <Settings className="h-3.5 w-3.5" /> ADM
               </button>
             )}
           </div>
           <button
             onClick={() => setHouseOpen(true)}
-            className="rounded-xl bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground"
           >
-            Convidar / Conta
+            <UserPlus className="h-3.5 w-3.5" />
+            Convidar
           </button>
         </div>
       </header>

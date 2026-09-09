@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, Mic, Pause, Play, Plus, Square, Trash2, User } from "lucide-react";
+import { CalendarClock, Mic, Pause, Play, Plus, Search, Square, Trash2, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,6 +63,7 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
   const invalidate = useInvalidate();
   const [open, setOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const [search, setSearch] = useState("");
 
   const startOfToday = useMemo(() => {
     const d = new Date();
@@ -70,9 +71,18 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
     return d.getTime();
   }, []);
 
+  const term = search.trim().toLowerCase();
+
   const groups = useMemo(() => {
     const list = all
       .filter((a) => showPast || new Date(a.scheduled_at).getTime() >= startOfToday)
+      .filter((a) => {
+        if (!term) return true;
+        const inTitle = (a.title || "").toLowerCase().includes(term);
+        const inDate = dayLabel(dayKey(a.scheduled_at)).label.toLowerCase().includes(term);
+        const inTime = fmtTime(a.scheduled_at).toLowerCase().includes(term);
+        return inTitle || inDate || inTime;
+      })
       .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
     const map = new Map<string, Appointment[]>();
     for (const a of list) {
@@ -80,7 +90,7 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
       map.set(k, [...(map.get(k) ?? []), a]);
     }
     return [...map.entries()];
-  }, [all, showPast, startOfToday]);
+  }, [all, showPast, startOfToday, term]);
 
   const pastCount = all.filter((a) => new Date(a.scheduled_at).getTime() < startOfToday).length;
 
@@ -109,21 +119,34 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
         )}
       </div>
 
+      <div className="relative">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por nome, data ou horário"
+          className="field w-full pl-9"
+        />
+      </div>
+
       {isLoading && <EmptyState>Carregando agenda...</EmptyState>}
 
       {!isLoading && !groups.length && (
         <EmptyState>
           <CalendarClock className="mx-auto mb-2 h-6 w-6" />
-          Nenhum compromisso por vir. Grave um por áudio!
+          {term ? "Nenhum compromisso encontrado." : "Nenhum compromisso por vir. Grave um por áudio!"}
         </EmptyState>
       )}
 
       {groups.map(([key, items]) => {
         const { label, tag } = dayLabel(key);
+        const titleClass =
+          tag === "Hoje" ? "text-lg font-bold" : tag === "Amanhã" ? "text-base font-semibold" : "text-sm font-semibold";
         return (
           <section key={key} className="space-y-2">
             <header className="flex items-center gap-2 px-1">
-              <h3 className="text-sm font-semibold">{label}</h3>
+              <h3 className={titleClass}>{label}</h3>
               {tag === "Hoje" && <Pill tone="primary">Hoje</Pill>}
               {tag === "Amanhã" && <Pill tone="accent">Amanhã</Pill>}
               {tag === "Passou" && <Pill>Passou</Pill>}
