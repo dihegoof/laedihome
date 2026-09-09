@@ -101,14 +101,8 @@ export function InventoryScreen({ userName }: { userName: string }) {
     toast.success("Produto excluído");
   }
 
-  function copyMissing() {
-    if (!missing.length) return toast.info("Nada faltando por aqui 🎉");
-    const text = `🛒 Lista de compras\n\n${missing
-      .map((p) => `• ${p.name}${p.is_essential ? " (essencial)" : ""}`)
-      .join("\n")}`;
-    void navigator.clipboard.writeText(text);
-    toast.success("Lista copiada!");
-  }
+
+
 
   return (
     <div className="space-y-4">
