@@ -492,7 +492,7 @@ function ImportModal({
     setBusy(true);
     try {
       for (const item of items) {
-        const existing = products.find((p) => p.name.toLowerCase() === item.name.toLowerCase());
+        const existing = item.forceNew ? null : findExistingProduct(products, item.name);
         if (existing) {
           await supabase
             .from("products")
