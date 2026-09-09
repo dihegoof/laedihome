@@ -51,6 +51,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
   const [onlyMissing, setOnlyMissing] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -100,14 +101,8 @@ export function InventoryScreen({ userName }: { userName: string }) {
     toast.success("Produto excluído");
   }
 
-  function copyMissing() {
-    if (!missing.length) return toast.info("Nada faltando por aqui 🎉");
-    const text = `🛒 Lista de compras\n\n${missing
-      .map((p) => `• ${p.name}${p.is_essential ? " (essencial)" : ""}`)
-      .join("\n")}`;
-    void navigator.clipboard.writeText(text);
-    toast.success("Lista copiada!");
-  }
+
+
 
   return (
     <div className="space-y-4">
@@ -159,8 +154,8 @@ export function InventoryScreen({ userName }: { userName: string }) {
           <Button size="sm" variant="outline" onClick={() => setImportOpen(true)}>
             <Sparkles className="h-4 w-4" /> Importar nota
           </Button>
-          <Button size="sm" variant="outline" onClick={copyMissing}>
-            <Copy className="h-4 w-4" /> Copiar lista
+          <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
+            <Copy className="h-4 w-4" /> Gerar lista
           </Button>
         </div>
       </div>
@@ -269,6 +264,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
           void invalidate("finances");
         }}
       />
+      <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} products={products} />
     </div>
   );
 }
@@ -473,7 +469,7 @@ function ImportModal({
 }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [items, setItems] = useState<{ name: string; quantity: number }[]>([]);
+  const [items, setItems] = useState<{ name: string; quantity: number; forceNew?: boolean }[]>([]);
   const [total, setTotal] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -496,7 +492,7 @@ function ImportModal({
     setBusy(true);
     try {
       for (const item of items) {
-        const existing = products.find((p) => p.name.toLowerCase() === item.name.toLowerCase());
+        const existing = item.forceNew ? null : findExistingProduct(products, item.name);
         if (existing) {
           await supabase
             .from("products")
@@ -599,32 +595,66 @@ function ImportModal({
         </>
       ) : (
         <div className="space-y-2">
-          {items.map((item, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <input
-                className="field flex-1"
-                value={item.name}
-                onChange={(e) =>
-                  setItems(items.map((it, j) => (i === j ? { ...it, name: e.target.value } : it)))
-                }
-              />
-              <input
-                className="field w-20"
-                inputMode="decimal"
-                value={item.quantity}
-                onChange={(e) =>
-                  setItems(
-                    items.map((it, j) =>
-                      i === j ? { ...it, quantity: Number(e.target.value.replace(",", ".")) || 0 } : it,
-                    ),
-                  )
-                }
-              />
-              <Button size="icon" variant="ghost" onClick={() => setItems(items.filter((_, j) => j !== i))}>
-                <Trash2 className="h-4 w-4 text-destructive" />
-              </Button>
-            </div>
-          ))}
+          {items.map((item, i) => {
+            const match = item.forceNew ? null : findExistingProduct(products, item.name);
+            return (
+              <div key={i} className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <input
+                    className="field flex-1"
+                    value={item.name}
+                    onChange={(e) =>
+                      setItems(items.map((it, j) => (i === j ? { ...it, name: e.target.value } : it)))
+                    }
+                  />
+                  <input
+                    className="field w-20"
+                    inputMode="decimal"
+                    value={item.quantity}
+                    onChange={(e) =>
+                      setItems(
+                        items.map((it, j) =>
+                          i === j ? { ...it, quantity: Number(e.target.value.replace(",", ".")) || 0 } : it,
+                        ),
+                      )
+                    }
+                  />
+                  <Button size="icon" variant="ghost" onClick={() => setItems(items.filter((_, j) => j !== i))}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2 pl-1 text-xs">
+                  {match ? (
+                    <>
+                      <span className="text-primary">Vai somar em "{match.name}"</span>
+                      <button
+                        className="font-semibold text-muted-foreground underline"
+                        onClick={() =>
+                          setItems(items.map((it, j) => (i === j ? { ...it, forceNew: true } : it)))
+                        }
+                      >
+                        criar separado
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-muted-foreground">Novo produto na despensa</span>
+                      {item.forceNew && (
+                        <button
+                          className="font-semibold text-muted-foreground underline"
+                          onClick={() =>
+                            setItems(items.map((it, j) => (i === j ? { ...it, forceNew: false } : it)))
+                          }
+                        >
+                          juntar com existente
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
           <Field label="Valor total da compra (R$)">
             <input
               className="field"
@@ -633,6 +663,189 @@ function ImportModal({
               onChange={(e) => setTotal(Number(e.target.value.replace(",", ".")) || 0)}
             />
           </Field>
+        </div>
+      )}
+    </Modal>
+  );
+}
+
+/** Removes accents, punctuation and plurals so "Shampoo Dove 400ml" ~ "shampoo". */
+function normalizeName(value: string) {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const STOP_WORDS = new Set(["de", "da", "do", "com", "sem", "para", "e", "kg", "g", "ml", "l", "un", "pct"]);
+
+function nameTokens(value: string) {
+  return normalizeName(value)
+    .split(" ")
+    .map((t) => (t.length > 3 && t.endsWith("s") ? t.slice(0, -1) : t))
+    .filter((t) => t.length > 1 && !STOP_WORDS.has(t) && !/^\d+$/.test(t));
+}
+
+/**
+ * Finds the product in the pantry that an imported line refers to, ignoring brands
+ * and sizes: "Shampoo Dove 400ml" matches an existing "Shampoo".
+ */
+export function findExistingProduct(products: Product[], importedName: string) {
+  const importedTokens = nameTokens(importedName);
+  if (!importedTokens.length) return null;
+  const importedSet = new Set(importedTokens);
+
+  let best: { product: Product; score: number } | null = null;
+  for (const product of products) {
+    const tokens = nameTokens(product.name);
+    if (!tokens.length) continue;
+    const shared = tokens.filter((t) => importedSet.has(t));
+    // Every word of the pantry product must appear in the imported line (brand-tolerant),
+    // or vice-versa when the pantry name is the longer one.
+    const covered =
+      shared.length === tokens.length ||
+      importedTokens.every((t) => tokens.includes(t));
+    if (!covered) continue;
+    const score = shared.length * 10 - Math.abs(tokens.length - importedTokens.length);
+    if (!best || score > best.score) best = { product, score };
+  }
+  return best?.product ?? null;
+}
+
+type ExportFilter = "faltando" | "essenciais" | "todos";
+
+function ExportModal({
+  open,
+  onClose,
+  products,
+}: {
+  open: boolean;
+  onClose: () => void;
+  products: Product[];
+}) {
+  const categories = useProductCategories();
+  const [filter, setFilter] = useState<ExportFilter>("faltando");
+  const [category, setCategory] = useState("todos");
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  const visible = useMemo(() => {
+    return products.filter((p) => {
+      if (filter === "faltando" && Number(p.quantity) > 0) return false;
+      if (filter === "essenciais" && !p.is_essential) return false;
+      if (category !== "todos" && (p.category || "Sem categoria") !== category) return false;
+      return true;
+    });
+  }, [products, filter, category]);
+
+  // Pre-select everything the current filter shows.
+  useEffect(() => {
+    if (!open) return;
+    setSelected(Object.fromEntries(visible.map((p) => [p.id, true])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, filter, category]);
+
+  const chosen = visible.filter((p) => selected[p.id]);
+
+  function copy() {
+    if (!chosen.length) return toast.info("Selecione pelo menos um item");
+    const text = `🛒 Lista de compras\n\n${chosen
+      .map((p) => `• ${p.name}${p.is_essential ? " (essencial)" : ""}`)
+      .join("\n")}`;
+    void navigator.clipboard.writeText(text);
+    toast.success(`Lista com ${chosen.length} item(ns) copiada!`);
+    onClose();
+  }
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Gerar lista de compras"
+      footer={
+        <>
+          <Button className="flex-1" onClick={copy}>
+            <Copy className="h-4 w-4" /> Copiar {chosen.length ? `(${chosen.length})` : ""}
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            Fechar
+          </Button>
+        </>
+      }
+    >
+      <div className="no-scrollbar flex gap-2 overflow-x-auto">
+        {(
+          [
+            ["faltando", "Só faltando"],
+            ["essenciais", "Só essenciais"],
+            ["todos", "Todos"],
+          ] as [ExportFilter, string][]
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
+              filter === key ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div className="no-scrollbar flex gap-2 overflow-x-auto">
+        {["todos", ...categories, "Sem categoria"].map((c) => (
+          <button
+            key={c}
+            onClick={() => setCategory(c)}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-colors ${
+              category === c ? "bg-accent text-accent-foreground" : "bg-secondary text-secondary-foreground"
+            }`}
+          >
+            {c === "todos" ? "Todas as categorias" : c}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>
+          {chosen.length} de {visible.length} selecionado(s)
+        </span>
+        <div className="flex gap-2">
+          <button
+            className="font-semibold text-primary"
+            onClick={() => setSelected(Object.fromEntries(visible.map((p) => [p.id, true])))}
+          >
+            Marcar todos
+          </button>
+          <button className="font-semibold text-muted-foreground" onClick={() => setSelected({})}>
+            Limpar
+          </button>
+        </div>
+      </div>
+
+      {!visible.length ? (
+        <EmptyState>Nenhum item com esse filtro.</EmptyState>
+      ) : (
+        <div className="max-h-72 space-y-1 overflow-y-auto">
+          {visible.map((p) => (
+            <label
+              key={p.id}
+              className="flex cursor-pointer items-center gap-3 rounded-xl border border-border px-3 py-2"
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[var(--color-primary)]"
+                checked={!!selected[p.id]}
+                onChange={(e) => setSelected((s) => ({ ...s, [p.id]: e.target.checked }))}
+              />
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{p.name}</span>
+              {p.is_essential && <Pill tone="accent">essencial</Pill>}
+              <span className="text-xs text-muted-foreground">{qty(Number(p.quantity))}</span>
+            </label>
+          ))}
         </div>
       )}
     </Modal>
