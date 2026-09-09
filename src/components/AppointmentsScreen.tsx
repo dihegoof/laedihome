@@ -63,6 +63,7 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
   const invalidate = useInvalidate();
   const [open, setOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
+  const [search, setSearch] = useState("");
 
   const startOfToday = useMemo(() => {
     const d = new Date();
@@ -70,9 +71,18 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
     return d.getTime();
   }, []);
 
+  const term = search.trim().toLowerCase();
+
   const groups = useMemo(() => {
     const list = all
       .filter((a) => showPast || new Date(a.scheduled_at).getTime() >= startOfToday)
+      .filter((a) => {
+        if (!term) return true;
+        const inTitle = (a.title || "").toLowerCase().includes(term);
+        const inDate = dayLabel(dayKey(a.scheduled_at)).label.toLowerCase().includes(term);
+        const inTime = fmtTime(a.scheduled_at).toLowerCase().includes(term);
+        return inTitle || inDate || inTime;
+      })
       .sort((a, b) => a.scheduled_at.localeCompare(b.scheduled_at));
     const map = new Map<string, Appointment[]>();
     for (const a of list) {
@@ -80,7 +90,7 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
       map.set(k, [...(map.get(k) ?? []), a]);
     }
     return [...map.entries()];
-  }, [all, showPast, startOfToday]);
+  }, [all, showPast, startOfToday, term]);
 
   const pastCount = all.filter((a) => new Date(a.scheduled_at).getTime() < startOfToday).length;
 
