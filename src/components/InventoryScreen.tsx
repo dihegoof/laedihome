@@ -264,6 +264,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
           void invalidate("finances");
         }}
       />
+      <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} products={products} />
     </div>
   );
 }
