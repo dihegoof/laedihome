@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, Mic, Pause, Play, Plus, Square, Trash2, User } from "lucide-react";
+import { CalendarClock, Mic, Pause, Play, Plus, Search, Square, Trash2, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
