@@ -82,9 +82,24 @@ export type Appointment = {
   duration_seconds: number | null;
   created_by: string | null;
   created_by_name: string;
+  reminder_done: boolean;
   created_at: string;
   updated_at: string;
 };
+
+export type Goal = {
+  id: string;
+  household_id: string;
+  name: string;
+  description: string | null;
+  target_value: number;
+  saved_value: number;
+  achieved: boolean;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+};
+
 
 export type WardrobeItem = {
   id: string;

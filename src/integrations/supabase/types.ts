@@ -23,6 +23,7 @@ export type Database = {
           duration_seconds: number | null
           household_id: string
           id: string
+          reminder_done: boolean
           scheduled_at: string
           title: string | null
           updated_at: string
@@ -35,6 +36,7 @@ export type Database = {
           duration_seconds?: number | null
           household_id?: string
           id?: string
+          reminder_done?: boolean
           scheduled_at: string
           title?: string | null
           updated_at?: string
@@ -47,6 +49,7 @@ export type Database = {
           duration_seconds?: number | null
           household_id?: string
           id?: string
+          reminder_done?: boolean
           scheduled_at?: string
           title?: string | null
           updated_at?: string
@@ -209,6 +212,53 @@ export type Database = {
           },
         ]
       }
+      goals: {
+        Row: {
+          achieved: boolean
+          created_at: string
+          created_by_name: string
+          description: string | null
+          household_id: string
+          id: string
+          name: string
+          saved_value: number
+          target_value: number
+          updated_at: string
+        }
+        Insert: {
+          achieved?: boolean
+          created_at?: string
+          created_by_name?: string
+          description?: string | null
+          household_id?: string
+          id?: string
+          name: string
+          saved_value?: number
+          target_value?: number
+          updated_at?: string
+        }
+        Update: {
+          achieved?: boolean
+          created_at?: string
+          created_by_name?: string
+          description?: string | null
+          household_id?: string
+          id?: string
+          name?: string
+          saved_value?: number
+          target_value?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       history: {
         Row: {
           action: string
@@ -355,6 +405,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          assistant_always_on: boolean
           created_at: string
           email: string
           household_id: string | null
@@ -362,6 +413,7 @@ export type Database = {
           name: string
         }
         Insert: {
+          assistant_always_on?: boolean
           created_at?: string
           email: string
           household_id?: string | null
@@ -369,6 +421,7 @@ export type Database = {
           name: string
         }
         Update: {
+          assistant_always_on?: boolean
           created_at?: string
           email?: string
           household_id?: string | null
