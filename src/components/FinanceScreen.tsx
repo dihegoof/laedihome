@@ -540,33 +540,55 @@ function Cards({
 function Debts({ debts, userName }: { debts: Debt[]; userName: string }) {
   const invalidate = useInvalidate();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Debt | null>(null);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({
-    description: "",
-    creditor: "",
-    total_value: "",
-    total_installments: "1",
-  });
+  const empty = { description: "", creditor: "", total_value: "", total_installments: "1", paid_installments: "0" };
+  const [form, setForm] = useState(empty);
   const fileRef = useRef<HTMLInputElement>(null);
   const [payingDebt, setPayingDebt] = useState<Debt | null>(null);
+
+  function openNew() {
+    setEditing(null);
+    setForm(empty);
+    setOpen(true);
+  }
+
+  function openEdit(d: Debt) {
+    setEditing(d);
+    setForm({
+      description: d.description,
+      creditor: d.creditor ?? "",
+      total_value: brl(Number(d.total_value)),
+      total_installments: String(d.total_installments),
+      paid_installments: String(d.paid_installments),
+    });
+    setOpen(true);
+  }
 
   async function save() {
     if (!form.description.trim()) return toast.error("Informe a descrição");
     const total = parseCurrency(form.total_value);
     const count = Math.max(1, Number(form.total_installments) || 1);
-    setBusy(true);
-    const { error } = await supabase.from("debts").insert({
+    const paid = Math.min(count, Math.max(0, Number(form.paid_installments) || 0));
+    const payload = {
       description: form.description.trim(),
       creditor: form.creditor.trim() || null,
       total_value: total,
       total_installments: count,
       installment_value: Number((total / count).toFixed(2)),
-    });
+      paid_installments: paid,
+    };
+    setBusy(true);
+    const { error } = editing
+      ? await supabase.from("debts").update(payload).eq("id", editing.id)
+      : await supabase.from("debts").insert(payload);
     setBusy(false);
     if (error) return toast.error(error.message);
     void invalidate("debts");
-    void logHistory(userName, "cadastrou dívida", form.description.trim());
-    setForm({ description: "", creditor: "", total_value: "", total_installments: "1" });
+    void logHistory(userName, editing ? "editou dívida" : "cadastrou dívida", payload.description);
+    toast.success(editing ? "Dívida atualizada" : "Dívida cadastrada");
+    setForm(empty);
+    setEditing(null);
     setOpen(false);
   }
 
@@ -594,7 +616,7 @@ function Debts({ debts, userName }: { debts: Debt[]; userName: string }) {
 
   return (
     <div className="space-y-3">
-      <Button size="sm" onClick={() => setOpen(true)}>
+      <Button size="sm" onClick={openNew}>
         <Plus className="h-4 w-4" /> Nova dívida
       </Button>
 
@@ -625,6 +647,9 @@ function Debts({ debts, userName }: { debts: Debt[]; userName: string }) {
               </Button>
               <Button size="sm" variant="outline" disabled={done} onClick={() => { setPayingDebt(d); fileRef.current?.click(); }}>
                 <FileUp className="h-4 w-4" /> Pagar com comprovante
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => openEdit(d)}>
+                <Pencil className="h-4 w-4" />
               </Button>
               <Button size="sm" variant="ghost" onClick={() => void remove(d)}>
                 <Trash2 className="h-4 w-4 text-destructive" />
@@ -673,7 +698,7 @@ function Debts({ debts, userName }: { debts: Debt[]; userName: string }) {
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Nova dívida"
+        title={editing ? "Editar dívida" : "Nova dívida"}
         footer={
           <Button className="flex-1" onClick={() => void save()} disabled={busy}>
             {busy ? <Spinner /> : "Salvar"}
@@ -713,7 +738,172 @@ function Debts({ debts, userName }: { debts: Debt[]; userName: string }) {
             />
           </Field>
         </div>
+        {editing && (
+          <Field label="Parcelas já pagas">
+            <input
+              className="field"
+              inputMode="numeric"
+              value={form.paid_installments}
+              onChange={(e) => setForm({ ...form, paid_installments: e.target.value })}
+            />
+          </Field>
+        )}
       </Modal>
     </div>
   );
 }
+
+function Goals({ goals, userName }: { goals: Goal[]; userName: string }) {
+  const invalidate = useInvalidate();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const empty = { name: "", description: "", target_value: "" };
+  const [form, setForm] = useState(empty);
+  const [editing, setEditing] = useState<Goal | null>(null);
+
+  useEffect(() => {
+    if (!open) setEditing(null);
+  }, [open]);
+
+  async function save() {
+    if (!form.name.trim()) return toast.error("Informe o nome da meta");
+    const target = parseCurrency(form.target_value);
+    if (target <= 0) return toast.error("Informe o valor da meta");
+    setBusy(true);
+    const payload = {
+      name: form.name.trim(),
+      description: form.description.trim() || null,
+      target_value: target,
+      created_by_name: userName,
+    };
+    const { error } = editing
+      ? await supabase.from("goals").update(payload).eq("id", editing.id)
+      : await supabase.from("goals").insert(payload);
+    setBusy(false);
+    if (error) return toast.error(error.message);
+    void invalidate("goals");
+    void logHistory(userName, editing ? "editou meta" : "criou meta", payload.name);
+    setForm(empty);
+    setOpen(false);
+  }
+
+  async function reserve(goal: Goal) {
+    const raw = prompt(`Quanto você quer reservar para "${goal.name}"?`, "");
+    if (raw == null) return;
+    const amount = parseCurrency(raw);
+    if (!amount) return toast.error("Valor inválido");
+    const saved = Number(goal.saved_value) + amount;
+    const achieved = saved >= Number(goal.target_value);
+    const { error } = await supabase
+      .from("goals")
+      .update({ saved_value: saved, achieved })
+      .eq("id", goal.id);
+    if (error) return toast.error(error.message);
+    void invalidate("goals");
+    void logHistory(userName, `reservou ${brl(amount)} na meta`, goal.name);
+    toast.success(achieved ? "Meta alcançada! 🎉" : "Valor reservado");
+  }
+
+  async function remove(goal: Goal) {
+    if (!confirm(`Excluir meta "${goal.name}"?`)) return;
+    await supabase.from("goals").delete().eq("id", goal.id);
+    void invalidate("goals");
+    void logHistory(userName, "excluiu meta", goal.name);
+  }
+
+  return (
+    <div className="space-y-3">
+      <Button size="sm" onClick={() => { setForm(empty); setOpen(true); }}>
+        <Plus className="h-4 w-4" /> Nova meta
+      </Button>
+
+      {!goals.length && <EmptyState>Nenhuma meta cadastrada ainda.</EmptyState>}
+
+      {goals.map((g) => {
+        const pct = Number(g.target_value) > 0
+          ? Math.min(100, (Number(g.saved_value) / Number(g.target_value)) * 100)
+          : 0;
+        const done = g.achieved || pct >= 100;
+        return (
+          <article key={g.id} className="surface p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="font-semibold">{g.name}</p>
+                {g.description && <p className="text-xs text-muted-foreground">{g.description}</p>}
+              </div>
+              {done ? <Pill tone="success">alcançada</Pill> : <Pill>{Math.round(pct)}%</Pill>}
+            </div>
+            <div className="mt-3 h-2.5 overflow-hidden rounded-full bg-secondary">
+              <div
+                className={`h-full rounded-full ${done ? "bg-success" : "bg-primary"}`}
+                style={{ width: `${done ? 100 : pct}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {brl(Number(g.saved_value))} reservados de {brl(Number(g.target_value))}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!done && (
+                <>
+                  <Button size="sm" variant="soft" onClick={() => void reserve(g)}>
+                    <PiggyBank className="h-4 w-4" /> Reservar valor
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setEditing(g);
+                      setForm({
+                        name: g.name,
+                        description: g.description ?? "",
+                        target_value: brl(Number(g.target_value)),
+                      });
+                      setOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              <Button size="sm" variant="ghost" onClick={() => void remove(g)}>
+                <Trash2 className="h-4 w-4 text-destructive" />
+              </Button>
+            </div>
+          </article>
+        );
+      })}
+
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={editing ? "Editar meta" : "Nova meta"}
+        footer={
+          <Button className="flex-1" onClick={() => void save()} disabled={busy}>
+            {busy ? <Spinner /> : "Salvar"}
+          </Button>
+        }
+      >
+        <Field label="Nome">
+          <input className="field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </Field>
+        <Field label="Descrição">
+          <textarea
+            className="field min-h-20"
+            value={form.description}
+            onChange={(e) => setForm({ ...form, description: e.target.value })}
+          />
+        </Field>
+        <Field label="Valor da meta">
+          <input
+            className="field"
+            inputMode="decimal"
+            placeholder="R$ 0,00"
+            value={form.target_value}
+            onChange={(e) => setForm({ ...form, target_value: e.target.value })}
+          />
+        </Field>
+      </Modal>
+    </div>
+  );
+}
+
