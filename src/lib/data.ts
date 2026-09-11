@@ -6,6 +6,7 @@ import type {
   Card,
   Debt,
   Finance,
+  Goal,
   HistoryEntry,
   Member,
   Product,
@@ -77,6 +78,8 @@ export const useWardrobeItems = (enabled = true) =>
   useTable<WardrobeItem>("wardrobe_items", { column: "created_at", ascending: false }, enabled);
 export const useWardrobeLooks = (enabled = true) =>
   useTable<WardrobeLook>("wardrobe_looks", { column: "created_at", ascending: false }, enabled);
+export const useGoals = (enabled = true) =>
+  useTable<Goal>("goals", { column: "created_at", ascending: false }, enabled);
 export const useAppointments = (enabled = true) =>
   useTable<Appointment>("appointments", { column: "scheduled_at", ascending: true }, enabled);
 
