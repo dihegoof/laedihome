@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   ArrowDownRight,
@@ -6,6 +6,8 @@ import {
   CreditCard,
   FileUp,
   HandCoins,
+  Pencil,
+  PiggyBank,
   Plus,
   Trash2,
   Wallet,
@@ -13,34 +15,48 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
-import { logHistory, useCards, useDebts, useFinances, useInvalidate } from "@/lib/data";
-import { type Card, type Debt, type Finance, type FinanceType } from "@/lib/types";
+import { logHistory, useCards, useDebts, useFinances, useGoals, useInvalidate } from "@/lib/data";
+import { type Card, type Debt, type Finance, type FinanceType, type Goal } from "@/lib/types";
 import { useFinanceCategories } from "@/lib/settings";
 import { brl, parseCurrency } from "@/lib/format";
 import { compressImage, uploadFile } from "@/lib/storage";
 
-type Tab = "movimentos" | "cartoes" | "dividas";
+
+type Tab = "movimentos" | "cartoes" | "dividas" | "metas";
+
+/** "2026-09" for a date. */
+export function monthKey(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabel(key: string) {
+  const [y, m] = key.split("-").map(Number);
+  return new Date(y!, (m ?? 1) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+}
 
 export function FinanceScreen({ userName }: { userName: string }) {
   const [tab, setTab] = useState<Tab>("movimentos");
   const { data: finances = [] } = useFinances();
   const { data: cards = [] } = useCards();
   const { data: debts = [] } = useDebts();
+  const { data: goals = [] } = useGoals();
+  const [month, setMonth] = useState(() => monthKey(new Date()));
 
   const totals = useMemo(() => {
-    const month = new Date().toISOString().slice(0, 7);
     const ofMonth = finances.filter((f) => (f.date ?? f.created_at).slice(0, 7) === month);
     const income = ofMonth.filter((f) => f.type === "income").reduce((s, f) => s + Number(f.value), 0);
     const expense = ofMonth
       .filter((f) => f.type !== "income")
       .reduce((s, f) => s + Number(f.value), 0);
     return { income, expense, balance: income - expense };
-  }, [finances]);
+  }, [finances, month]);
 
   return (
     <div className="space-y-4">
       <div className="surface bg-[linear-gradient(140deg,var(--color-primary),color-mix(in_oklab,var(--color-primary)_70%,var(--color-accent)))] p-5 text-primary-foreground">
-        <p className="text-xs font-semibold tracking-wide uppercase opacity-80">Saldo do mês</p>
+        <p className="text-xs font-semibold tracking-wide uppercase opacity-80">
+          Saldo de {monthLabel(month)}
+        </p>
         <p className="mt-1 text-3xl font-bold">{brl(totals.balance)}</p>
         <div className="mt-4 flex gap-5 text-sm">
           <span className="flex items-center gap-1.5">
@@ -58,12 +74,13 @@ export function FinanceScreen({ userName }: { userName: string }) {
             ["movimentos", "Movimentos", Wallet],
             ["cartoes", "Cartões", CreditCard],
             ["dividas", "Dívidas", HandCoins],
+            ["metas", "Metas", PiggyBank],
           ] as const
         ).map(([key, label, Icon]) => (
           <button
             key={key}
             onClick={() => setTab(key)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
+            className={`flex flex-1 flex-col items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-[11px] font-semibold transition-colors sm:flex-row sm:text-sm ${
               tab === key ? "bg-primary text-primary-foreground shadow-soft" : "bg-secondary text-secondary-foreground"
             }`}
           >
@@ -72,27 +89,59 @@ export function FinanceScreen({ userName }: { userName: string }) {
         ))}
       </div>
 
-      {tab === "movimentos" && <Movements finances={finances} cards={cards} userName={userName} />}
+      {tab === "movimentos" && (
+        <Movements
+          finances={finances}
+          cards={cards}
+          userName={userName}
+          month={month}
+          onMonth={setMonth}
+        />
+      )}
       {tab === "cartoes" && <Cards cards={cards} finances={finances} userName={userName} />}
       {tab === "dividas" && <Debts debts={debts} userName={userName} />}
+      {tab === "metas" && <Goals goals={goals} userName={userName} />}
     </div>
   );
 }
+
 
 function Movements({
   finances,
   cards,
   userName,
+  month,
+  onMonth,
 }: {
   finances: Finance[];
   cards: Card[];
   userName: string;
+  month: string;
+  onMonth: (m: string) => void;
 }) {
   const invalidate = useInvalidate();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<"todos" | FinanceType>("todos");
 
-  const list = finances.filter((f) => filter === "todos" || f.type === filter);
+  /** Current month + the two previous ones. */
+  const months = useMemo(() => {
+    const now = new Date();
+    return [0, 1, 2].map((i) => monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)));
+  }, []);
+
+  const groups = useMemo(() => {
+    const list = finances.filter(
+      (f) =>
+        (f.date ?? f.created_at).slice(0, 7) === month &&
+        (filter === "todos" || f.type === filter),
+    );
+    const map = new Map<string, Finance[]>();
+    for (const f of list) {
+      const day = (f.date ?? f.created_at).slice(0, 10);
+      map.set(day, [...(map.get(day) ?? []), f]);
+    }
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [finances, month, filter]);
 
   async function remove(f: Finance) {
     if (!confirm(`Excluir "${f.description}"?`)) return;
@@ -101,8 +150,24 @@ function Movements({
     void logHistory(userName, "excluiu lançamento", f.description);
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <div className="space-y-3">
+      <div className="flex gap-2 overflow-x-auto">
+        {months.map((m, i) => (
+          <button
+            key={m}
+            onClick={() => onMonth(m)}
+            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold capitalize ${
+              month === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
+            }`}
+          >
+            {i === 0 ? "Este mês" : monthLabel(m)}
+          </button>
+        ))}
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
@@ -127,50 +192,75 @@ function Movements({
         </Button>
       </div>
 
-      {!list.length && <EmptyState>Nenhum lançamento ainda.</EmptyState>}
+      {!groups.length && <EmptyState>Nenhum lançamento neste mês.</EmptyState>}
 
-      {list.map((f) => (
-        <article key={f.id} className="surface flex items-center gap-3 p-3">
-          <div
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-              f.type === "income" ? "bg-success/15 text-success" : "bg-destructive/12 text-destructive"
-            }`}
-          >
-            {f.type === "income" ? (
-              <ArrowUpRight className="h-5 w-5" />
-            ) : f.type === "card" ? (
-              <CreditCard className="h-5 w-5" />
-            ) : (
-              <ArrowDownRight className="h-5 w-5" />
-            )}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold">{f.description}</p>
-            <p className="text-xs text-muted-foreground">
-              {(f.date ?? f.created_at).slice(0, 10).split("-").reverse().join("/")}
-              {f.category ? ` · ${f.category}` : ""}
-              {f.total_installments
-                ? ` · ${f.current_installment ?? 1}/${f.total_installments}x`
-                : ""}
-              {f.card_id ? ` · ${cards.find((c) => c.id === f.card_id)?.name ?? "Cartão"}` : ""}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className={`font-bold ${f.type === "income" ? "text-success" : "text-destructive"}`}>
-              {f.type === "income" ? "+" : "-"}
-              {brl(Number(f.value))}
-            </p>
-            <button className="text-xs text-muted-foreground" onClick={() => void remove(f)}>
-              excluir
-            </button>
-          </div>
-        </article>
-      ))}
+      {groups.map(([day, items], gi) => {
+        const dayTotal = items.reduce(
+          (s, f) => s + (f.type === "income" ? Number(f.value) : -Number(f.value)),
+          0,
+        );
+        const size = gi === 0 ? "text-lg" : gi === 1 ? "text-base" : "text-sm";
+        return (
+          <section key={day} className="space-y-2">
+            <header className="flex items-end justify-between gap-2 pt-1">
+              <h3 className={`${size} font-bold capitalize`}>
+                {day === today
+                  ? "Hoje"
+                  : new Date(`${day}T12:00:00`).toLocaleDateString("pt-BR", {
+                      day: "2-digit",
+                      month: "long",
+                    })}
+              </h3>
+              <span className={`text-xs font-semibold ${dayTotal >= 0 ? "text-success" : "text-destructive"}`}>
+                {brl(dayTotal)}
+              </span>
+            </header>
+
+            {items.map((f) => (
+              <article key={f.id} className="surface flex items-center gap-3 p-3">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    f.type === "income" ? "bg-success/15 text-success" : "bg-destructive/12 text-destructive"
+                  }`}
+                >
+                  {f.type === "income" ? (
+                    <ArrowUpRight className="h-5 w-5" />
+                  ) : f.type === "card" ? (
+                    <CreditCard className="h-5 w-5" />
+                  ) : (
+                    <ArrowDownRight className="h-5 w-5" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold">{f.description}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {f.category ?? ""}
+                    {f.total_installments
+                      ? ` · ${f.current_installment ?? 1}/${f.total_installments}x`
+                      : ""}
+                    {f.card_id ? ` · ${cards.find((c) => c.id === f.card_id)?.name ?? "Cartão"}` : ""}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className={`font-bold ${f.type === "income" ? "text-success" : "text-destructive"}`}>
+                    {f.type === "income" ? "+" : "-"}
+                    {brl(Number(f.value))}
+                  </p>
+                  <button className="text-xs text-muted-foreground" onClick={() => void remove(f)}>
+                    excluir
+                  </button>
+                </div>
+              </article>
+            ))}
+          </section>
+        );
+      })}
 
       <FinanceModal open={open} onClose={() => setOpen(false)} cards={cards} userName={userName} />
     </div>
   );
 }
+
 
 function FinanceModal({
   open,
