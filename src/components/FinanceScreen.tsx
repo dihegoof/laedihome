@@ -31,7 +31,8 @@ export function monthKey(d: Date) {
 
 function monthLabel(key: string) {
   const [y, m] = key.split("-").map(Number);
-  return new Date(y!, (m ?? 1) - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  if (!y || !m) return key;
+  return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
 export function FinanceScreen({ userName }: { userName: string }) {

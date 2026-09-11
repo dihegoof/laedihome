@@ -60,10 +60,12 @@ function Index() {
     queryKey: ["household-owner", profile?.household_id],
     enabled: !!profile?.household_id,
     queryFn: async () => {
+      const householdId = profile?.household_id;
+      if (!householdId) return null;
       const { data } = await supabase
         .from("households")
         .select("id,owner_id")
-        .eq("id", profile!.household_id!)
+        .eq("id", householdId)
         .maybeSingle();
       return data;
     },
