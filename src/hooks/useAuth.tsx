@@ -7,6 +7,7 @@ export type Profile = {
   email: string;
   name: string;
   household_id: string | null;
+  assistant_always_on: boolean;
 };
 
 type AuthCtx = {
@@ -33,7 +34,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function loadProfile(userId: string) {
     const { data } = await supabase
       .from("profiles")
-      .select("id,email,name,household_id")
+      .select("id,email,name,household_id,assistant_always_on")
       .eq("id", userId)
       .maybeSingle();
     setProfile((data as Profile) ?? null);

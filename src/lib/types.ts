@@ -83,6 +83,7 @@ export type Appointment = {
   created_by: string | null;
   created_by_name: string;
   reminder_done: boolean;
+  notification_sent_at: string | null;
   created_at: string;
   updated_at: string;
 };

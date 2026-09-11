@@ -8,6 +8,10 @@ export type HouseholdSettings = {
   theme: string;
   product_categories: string[];
   finance_categories: string[];
+  finance_reset_day: number;
+  notifications_enabled: boolean;
+  reminder_minutes: number;
+  reminder_hour: number;
 };
 
 export const THEMES: { key: string; label: string; swatch: string[] }[] = [
@@ -23,6 +27,10 @@ export const DEFAULT_SETTINGS = {
   theme: "salvia",
   product_categories: [...PRODUCT_CATEGORIES] as string[],
   finance_categories: [...FINANCE_CATEGORIES] as string[],
+  finance_reset_day: 1,
+  notifications_enabled: true,
+  reminder_minutes: 1440,
+  reminder_hour: 9,
 };
 
 export function useSettings(enabled = true) {
@@ -42,6 +50,10 @@ export function useSettings(enabled = true) {
         finance_categories: Array.isArray(data.finance_categories)
           ? (data.finance_categories as string[])
           : DEFAULT_SETTINGS.finance_categories,
+        finance_reset_day: data.finance_reset_day ?? DEFAULT_SETTINGS.finance_reset_day,
+        notifications_enabled: data.notifications_enabled ?? DEFAULT_SETTINGS.notifications_enabled,
+        reminder_minutes: data.reminder_minutes ?? DEFAULT_SETTINGS.reminder_minutes,
+        reminder_hour: data.reminder_hour ?? DEFAULT_SETTINGS.reminder_hour,
       } satisfies HouseholdSettings;
     },
   });

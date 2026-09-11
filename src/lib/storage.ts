@@ -4,7 +4,10 @@ export type BucketName = "product-images" | "wardrobe" | "debt-proofs" | "appoin
 
 /** Uploads a file and returns the stored object path. */
 export async function uploadFile(bucket: BucketName, file: File | Blob, ext = "jpg") {
-  const path = `${crypto.randomUUID()}.${ext}`;
+  if (!navigator.onLine) throw new Error("Fotos e áudios precisam de conexão para serem enviados.");
+  const { data: householdId, error: householdError } = await supabase.rpc("current_household");
+  if (householdError || !householdId) throw new Error("Não consegui identificar sua casa.");
+  const path = `${householdId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(bucket).upload(path, file, {
     cacheControl: "3600",
     upsert: false,
