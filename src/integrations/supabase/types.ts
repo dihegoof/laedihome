@@ -17,12 +17,14 @@ export type Database = {
       appointments: {
         Row: {
           audio_url: string | null
+          client_mutation_id: string | null
           created_at: string
           created_by: string | null
           created_by_name: string
           duration_seconds: number | null
           household_id: string
           id: string
+          notification_sent_at: string | null
           reminder_done: boolean
           scheduled_at: string
           title: string | null
@@ -30,12 +32,14 @@ export type Database = {
         }
         Insert: {
           audio_url?: string | null
+          client_mutation_id?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string
           duration_seconds?: number | null
           household_id?: string
           id?: string
+          notification_sent_at?: string | null
           reminder_done?: boolean
           scheduled_at: string
           title?: string | null
@@ -43,12 +47,14 @@ export type Database = {
         }
         Update: {
           audio_url?: string | null
+          client_mutation_id?: string | null
           created_at?: string
           created_by?: string | null
           created_by_name?: string
           duration_seconds?: number | null
           household_id?: string
           id?: string
+          notification_sent_at?: string | null
           reminder_done?: boolean
           scheduled_at?: string
           title?: string | null
@@ -67,6 +73,7 @@ export type Database = {
       cards: {
         Row: {
           card_limit: number
+          client_mutation_id: string | null
           close_day: number | null
           created_at: string
           due_day: number | null
@@ -76,6 +83,7 @@ export type Database = {
         }
         Insert: {
           card_limit?: number
+          client_mutation_id?: string | null
           close_day?: number | null
           created_at?: string
           due_day?: number | null
@@ -85,6 +93,7 @@ export type Database = {
         }
         Update: {
           card_limit?: number
+          client_mutation_id?: string | null
           close_day?: number | null
           created_at?: string
           due_day?: number | null
@@ -104,6 +113,7 @@ export type Database = {
       }
       debts: {
         Row: {
+          client_mutation_id: string | null
           created_at: string
           creditor: string | null
           description: string
@@ -116,6 +126,7 @@ export type Database = {
           total_value: number
         }
         Insert: {
+          client_mutation_id?: string | null
           created_at?: string
           creditor?: string | null
           description: string
@@ -128,6 +139,7 @@ export type Database = {
           total_value?: number
         }
         Update: {
+          client_mutation_id?: string | null
           created_at?: string
           creditor?: string | null
           description?: string
@@ -149,10 +161,59 @@ export type Database = {
           },
         ]
       }
+      device_tokens: {
+        Row: {
+          created_at: string
+          device_name: string
+          enabled: boolean
+          household_id: string
+          id: string
+          token: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_name?: string
+          enabled?: boolean
+          household_id?: string
+          id?: string
+          token: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_name?: string
+          enabled?: boolean
+          household_id?: string
+          id?: string
+          token?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_tokens_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_tokens_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finances: {
         Row: {
           card_id: string | null
           category: string | null
+          client_mutation_id: string | null
           created_at: string
           current_installment: number | null
           date: string | null
@@ -168,6 +229,7 @@ export type Database = {
         Insert: {
           card_id?: string | null
           category?: string | null
+          client_mutation_id?: string | null
           created_at?: string
           current_installment?: number | null
           date?: string | null
@@ -183,6 +245,7 @@ export type Database = {
         Update: {
           card_id?: string | null
           category?: string | null
+          client_mutation_id?: string | null
           created_at?: string
           current_installment?: number | null
           date?: string | null
@@ -215,6 +278,7 @@ export type Database = {
       goals: {
         Row: {
           achieved: boolean
+          client_mutation_id: string | null
           created_at: string
           created_by_name: string
           description: string | null
@@ -227,6 +291,7 @@ export type Database = {
         }
         Insert: {
           achieved?: boolean
+          client_mutation_id?: string | null
           created_at?: string
           created_by_name?: string
           description?: string | null
@@ -239,6 +304,7 @@ export type Database = {
         }
         Update: {
           achieved?: boolean
+          client_mutation_id?: string | null
           created_at?: string
           created_by_name?: string
           description?: string | null
@@ -262,6 +328,7 @@ export type Database = {
       history: {
         Row: {
           action: string
+          client_mutation_id: string | null
           created_at: string
           household_id: string
           id: string
@@ -270,6 +337,7 @@ export type Database = {
         }
         Insert: {
           action: string
+          client_mutation_id?: string | null
           created_at?: string
           household_id?: string
           id?: string
@@ -278,6 +346,7 @@ export type Database = {
         }
         Update: {
           action?: string
+          client_mutation_id?: string | null
           created_at?: string
           household_id?: string
           id?: string
@@ -298,24 +367,36 @@ export type Database = {
         Row: {
           created_at: string
           finance_categories: Json
+          finance_reset_day: number
           household_id: string
+          notifications_enabled: boolean
           product_categories: Json
+          reminder_hour: number
+          reminder_minutes: number
           theme: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           finance_categories?: Json
+          finance_reset_day?: number
           household_id?: string
+          notifications_enabled?: boolean
           product_categories?: Json
+          reminder_hour?: number
+          reminder_minutes?: number
           theme?: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           finance_categories?: Json
+          finance_reset_day?: number
           household_id?: string
+          notifications_enabled?: boolean
           product_categories?: Json
+          reminder_hour?: number
+          reminder_minutes?: number
           theme?: string
           updated_at?: string
         }
@@ -356,6 +437,7 @@ export type Database = {
       products: {
         Row: {
           category: string | null
+          client_mutation_id: string | null
           created_at: string
           household_id: string
           id: string
@@ -369,6 +451,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          client_mutation_id?: string | null
           created_at?: string
           household_id?: string
           id?: string
@@ -382,6 +465,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          client_mutation_id?: string | null
           created_at?: string
           household_id?: string
           id?: string
@@ -440,6 +524,7 @@ export type Database = {
       }
       wardrobe_items: {
         Row: {
+          client_mutation_id: string | null
           color: string | null
           created_at: string
           household_id: string
@@ -453,6 +538,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          client_mutation_id?: string | null
           color?: string | null
           created_at?: string
           household_id?: string
@@ -466,6 +552,7 @@ export type Database = {
           type: string
         }
         Update: {
+          client_mutation_id?: string | null
           color?: string | null
           created_at?: string
           household_id?: string
@@ -497,6 +584,7 @@ export type Database = {
       }
       wardrobe_looks: {
         Row: {
+          client_mutation_id: string | null
           created_at: string
           household_id: string
           id: string
@@ -504,6 +592,7 @@ export type Database = {
           item_names: Json
         }
         Insert: {
+          client_mutation_id?: string | null
           created_at?: string
           household_id?: string
           id?: string
@@ -511,6 +600,7 @@ export type Database = {
           item_names?: Json
         }
         Update: {
+          client_mutation_id?: string | null
           created_at?: string
           household_id?: string
           id?: string
@@ -534,6 +624,7 @@ export type Database = {
     Functions: {
       current_household: { Args: never; Returns: string }
       email_for_name: { Args: { _name: string }; Returns: string }
+      is_household_owner: { Args: { _household_id: string }; Returns: boolean }
       join_household: { Args: { _code: string }; Returns: string }
     }
     Enums: {
