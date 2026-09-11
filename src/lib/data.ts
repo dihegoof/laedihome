@@ -18,6 +18,7 @@ const TABLES = [
   "cards",
   "finances",
   "debts",
+  "goals",
   "history",
   "wardrobe_items",
   "wardrobe_looks",
@@ -25,6 +26,7 @@ const TABLES = [
   "appointments",
   "household_settings",
 ] as const;
+
 
 
 export type SyncedTable = (typeof TABLES)[number];
