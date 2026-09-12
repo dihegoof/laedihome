@@ -25,7 +25,9 @@ async function db() {
 }
 
 export const queryPersister: Persister = {
-  persistClient: async (client) => (await db()).put(STORE_CACHE, client, "client"),
+  persistClient: async (client) => {
+    await (await db()).put(STORE_CACHE, client, "client");
+  },
   restoreClient: async () => (await db()).get(STORE_CACHE, "client"),
   removeClient: async () => (await db()).delete(STORE_CACHE, "client"),
 };

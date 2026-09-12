@@ -15,10 +15,12 @@ export function HouseholdModal({ open, onClose }: { open: boolean; onClose: () =
     queryKey: ["household", profile?.household_id],
     enabled: !!profile?.household_id && open,
     queryFn: async () => {
+      const householdId = profile?.household_id;
+      if (!householdId) return null;
       const { data } = await supabase
         .from("households")
         .select("id,name,invite_code")
-        .eq("id", profile!.household_id!)
+        .eq("id", householdId)
         .maybeSingle();
       return data;
     },
