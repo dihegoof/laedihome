@@ -17,7 +17,7 @@ import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/ki
 import { StoredImage } from "@/components/StoredImage";
 import { logHistory, useCards, useDebts, useFinances, useGoals, useInvalidate } from "@/lib/data";
 import { type Card, type Debt, type Finance, type FinanceType, type Goal } from "@/lib/types";
-import { useFinanceCategories } from "@/lib/settings";
+import { DEFAULT_SETTINGS, useFinanceCategories, useSettings } from "@/lib/settings";
 import { brl, parseCurrency } from "@/lib/format";
 import { compressImage, uploadFile } from "@/lib/storage";
 
@@ -25,14 +25,38 @@ import { compressImage, uploadFile } from "@/lib/storage";
 type Tab = "movimentos" | "cartoes" | "dividas" | "metas";
 
 /** "2026-09" for a date. */
-export function monthKey(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+function pad(value: number) {
+  return String(value).padStart(2, "0");
 }
 
-function monthLabel(key: string) {
-  const [y, m] = key.split("-").map(Number);
-  if (!y || !m) return key;
-  return new Date(y, m - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+function safeCycleDate(year: number, month: number, day: number) {
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  return new Date(year, month, Math.min(day, lastDay), 12);
+}
+
+function cycleStart(date: Date, resetDay: number) {
+  const thisMonth = safeCycleDate(date.getFullYear(), date.getMonth(), resetDay);
+  return date >= thisMonth ? thisMonth : safeCycleDate(date.getFullYear(), date.getMonth() - 1, resetDay);
+}
+
+function cycleKey(date: Date) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+function cycleFromKey(key: string) {
+  const [year, month, day] = key.split("-").map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function nextCycle(start: Date, resetDay: number) {
+  return safeCycleDate(start.getFullYear(), start.getMonth() + 1, resetDay);
+}
+
+function cycleLabel(key: string, resetDay: number) {
+  const start = cycleFromKey(key);
+  const end = new Date(nextCycle(start, resetDay));
+  end.setDate(end.getDate() - 1);
+  return `${start.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })} a ${end.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}`;
 }
 
 export function FinanceScreen({ userName }: { userName: string }) {
@@ -41,22 +65,31 @@ export function FinanceScreen({ userName }: { userName: string }) {
   const { data: cards = [] } = useCards();
   const { data: debts = [] } = useDebts();
   const { data: goals = [] } = useGoals();
-  const [month, setMonth] = useState(() => monthKey(new Date()));
+  const { data: settings } = useSettings();
+  const resetDay = settings?.finance_reset_day ?? DEFAULT_SETTINGS.finance_reset_day;
+  const [month, setMonth] = useState(() => cycleKey(cycleStart(new Date(), DEFAULT_SETTINGS.finance_reset_day)));
+
+  useEffect(() => setMonth(cycleKey(cycleStart(new Date(), resetDay))), [resetDay]);
 
   const totals = useMemo(() => {
-    const ofMonth = finances.filter((f) => (f.date ?? f.created_at).slice(0, 7) === month);
+    const start = month;
+    const end = cycleKey(nextCycle(cycleFromKey(month), resetDay));
+    const ofMonth = finances.filter((f) => {
+      const date = (f.date ?? f.created_at).slice(0, 10);
+      return date >= start && date < end;
+    });
     const income = ofMonth.filter((f) => f.type === "income").reduce((s, f) => s + Number(f.value), 0);
     const expense = ofMonth
       .filter((f) => f.type !== "income")
       .reduce((s, f) => s + Number(f.value), 0);
     return { income, expense, balance: income - expense };
-  }, [finances, month]);
+  }, [finances, month, resetDay]);
 
   return (
     <div className="space-y-4">
       <div className="surface bg-[linear-gradient(140deg,var(--color-primary),color-mix(in_oklab,var(--color-primary)_70%,var(--color-accent)))] p-5 text-primary-foreground">
         <p className="text-xs font-semibold tracking-wide uppercase opacity-80">
-          Saldo de {monthLabel(month)}
+          Saldo do ciclo · {cycleLabel(month, resetDay)}
         </p>
         <p className="mt-1 text-3xl font-bold">{brl(totals.balance)}</p>
         <div className="mt-4 flex gap-5 text-sm">
@@ -97,6 +130,7 @@ export function FinanceScreen({ userName }: { userName: string }) {
           userName={userName}
           month={month}
           onMonth={setMonth}
+          resetDay={resetDay}
         />
       )}
       {tab === "cartoes" && <Cards cards={cards} finances={finances} userName={userName} />}
@@ -113,36 +147,38 @@ function Movements({
   userName,
   month,
   onMonth,
+  resetDay,
 }: {
   finances: Finance[];
   cards: Card[];
   userName: string;
   month: string;
   onMonth: (m: string) => void;
+  resetDay: number;
 }) {
   const invalidate = useInvalidate();
   const [open, setOpen] = useState(false);
   const [filter, setFilter] = useState<"todos" | FinanceType>("todos");
 
-  /** Current month + the two previous ones. */
+  /** Current cycle + the two previous ones. */
   const months = useMemo(() => {
-    const now = new Date();
-    return [0, 1, 2].map((i) => monthKey(new Date(now.getFullYear(), now.getMonth() - i, 1)));
-  }, []);
+    const current = cycleStart(new Date(), resetDay);
+    return [0, 1, 2].map((offset) => cycleKey(safeCycleDate(current.getFullYear(), current.getMonth() - offset, resetDay)));
+  }, [resetDay]);
 
   const groups = useMemo(() => {
-    const list = finances.filter(
-      (f) =>
-        (f.date ?? f.created_at).slice(0, 7) === month &&
-        (filter === "todos" || f.type === filter),
-    );
+    const end = cycleKey(nextCycle(cycleFromKey(month), resetDay));
+    const list = finances.filter((f) => {
+      const date = (f.date ?? f.created_at).slice(0, 10);
+      return date >= month && date < end && (filter === "todos" || f.type === filter);
+    });
     const map = new Map<string, Finance[]>();
     for (const f of list) {
       const day = (f.date ?? f.created_at).slice(0, 10);
       map.set(day, [...(map.get(day) ?? []), f]);
     }
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [finances, month, filter]);
+  }, [finances, month, filter, resetDay]);
 
   async function remove(f: Finance) {
     if (!confirm(`Excluir "${f.description}"?`)) return;
@@ -164,7 +200,7 @@ function Movements({
               month === m ? "bg-primary text-primary-foreground" : "bg-secondary text-secondary-foreground"
             }`}
           >
-            {i === 0 ? "Este mês" : monthLabel(m)}
+              {i === 0 ? "Ciclo atual" : cycleLabel(m, resetDay)}
           </button>
         ))}
       </div>
@@ -193,7 +229,7 @@ function Movements({
         </Button>
       </div>
 
-      {!groups.length && <EmptyState>Nenhum lançamento neste mês.</EmptyState>}
+      {!groups.length && <EmptyState>Nenhum lançamento neste ciclo.</EmptyState>}
 
       {groups.map(([day, items], gi) => {
         const dayTotal = items.reduce(
