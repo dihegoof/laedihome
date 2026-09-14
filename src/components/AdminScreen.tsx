@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Check, Palette, Plus, Tag, Trash2, Wallet } from "lucide-react";
-import { Button, EmptyState, Spinner } from "@/components/kit";
+import { Bell, CalendarRange, Check, Clock, Palette, Plus, Tag, Trash2, Wallet } from "lucide-react";
+import { Button, EmptyState, Field, Spinner } from "@/components/kit";
 import { logHistory } from "@/lib/data";
 import {
   DEFAULT_SETTINGS,
@@ -18,6 +18,10 @@ export function AdminScreen({ userName }: { userName: string }) {
   const theme = settings?.theme ?? DEFAULT_SETTINGS.theme;
   const products = settings?.product_categories ?? DEFAULT_SETTINGS.product_categories;
   const finances = settings?.finance_categories ?? DEFAULT_SETTINGS.finance_categories;
+  const resetDay = settings?.finance_reset_day ?? DEFAULT_SETTINGS.finance_reset_day;
+  const notificationsEnabled = settings?.notifications_enabled ?? DEFAULT_SETTINGS.notifications_enabled;
+  const reminderMinutes = settings?.reminder_minutes ?? DEFAULT_SETTINGS.reminder_minutes;
+  const reminderHour = settings?.reminder_hour ?? DEFAULT_SETTINGS.reminder_hour;
 
   async function apply(patch: Parameters<typeof save>[0], log: string) {
     setBusy(true);
@@ -68,6 +72,72 @@ export function AdminScreen({ userName }: { userName: string }) {
         <p className="mt-2 text-xs text-muted-foreground">
           A cor escolhida vale para todos que usam a casa.
         </p>
+      </section>
+
+      <section className="surface p-4">
+        <header className="mb-3 flex items-center gap-2">
+          <CalendarRange className="h-4 w-4 text-primary" />
+          <h3 className="text-base">Ciclo das finanças</h3>
+        </header>
+        <Field label="Dia em que o novo ciclo começa">
+          <input
+            className="field max-w-32"
+            type="number"
+            min={1}
+            max={31}
+            value={resetDay}
+            disabled={busy}
+            onChange={(event) => {
+              const value = Math.min(31, Math.max(1, Number(event.target.value) || 1));
+              void apply({ finance_reset_day: value }, `mudou o início do ciclo financeiro para o dia ${value}`);
+            }}
+          />
+        </Field>
+        <p className="mt-2 text-xs text-muted-foreground">Em meses mais curtos, o ciclo começa no último dia disponível.</p>
+      </section>
+
+      <section className="surface p-4">
+        <header className="mb-3 flex items-center gap-2">
+          <Bell className="h-4 w-4 text-primary" />
+          <h3 className="text-base">Avisos de compromissos</h3>
+        </header>
+        <Button
+          variant={notificationsEnabled ? "primary" : "outline"}
+          size="sm"
+          disabled={busy}
+          onClick={() => void apply({ notifications_enabled: !notificationsEnabled }, notificationsEnabled ? "desativou os avisos" : "ativou os avisos")}
+        >
+          <Bell className="h-4 w-4" /> {notificationsEnabled ? "Avisos ativados" : "Avisos desativados"}
+        </Button>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <Field label="Antecedência">
+            <select
+              className="field"
+              value={reminderMinutes}
+              disabled={busy || !notificationsEnabled}
+              onChange={(event) => void apply({ reminder_minutes: Number(event.target.value) }, "mudou a antecedência dos avisos")}
+            >
+              <option value={0}>No mesmo dia</option>
+              <option value={1440}>1 dia antes</option>
+              <option value={2880}>2 dias antes</option>
+              <option value={10080}>7 dias antes</option>
+            </select>
+          </Field>
+          <Field label="Horário">
+            <div className="relative">
+              <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                className="field pl-9"
+                value={reminderHour}
+                disabled={busy || !notificationsEnabled}
+                onChange={(event) => void apply({ reminder_hour: Number(event.target.value) }, "mudou o horário dos avisos")}
+              >
+                {Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
+              </select>
+            </div>
+          </Field>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">Cada pessoa ativa a permissão no próprio aparelho pelo botão do microfone.</p>
       </section>
 
       <CategoryEditor

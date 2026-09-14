@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarClock, History, Home, Package, Plus, Settings, Shirt, UserPlus, Wallet } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { CalendarClock, History, Home, Mic, Package, Settings, Shirt, UserPlus, Wallet } from "lucide-react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { InventoryScreen } from "@/components/InventoryScreen";
 import { FinanceScreen } from "@/components/FinanceScreen";
@@ -10,10 +11,14 @@ import { HistoryScreen } from "@/components/HistoryScreen";
 import { AdminScreen } from "@/components/AdminScreen";
 import { AppointmentsScreen } from "@/components/AppointmentsScreen";
 import { HouseholdModal } from "@/components/HouseholdModal";
-import { Spinner } from "@/components/kit";
+import { AppointmentReminder } from "@/components/AppointmentReminder";
+import { AssistantModal } from "@/components/AssistantModal";
+import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { Button, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/data";
+import { sendDueAppointmentNotifications } from "@/lib/notifications.functions";
 import { useApplyTheme, useSettings } from "@/lib/settings";
 
 export const Route = createFileRoute("/")({
@@ -52,6 +57,8 @@ function Index() {
   const { session, profile, user, loading } = useAuth();
   const [tab, setTab] = useState<TabKey>("despensa");
   const [houseOpen, setHouseOpen] = useState(false);
+  const [assistantOpen, setAssistantOpen] = useState(false);
+  const sendNotifications = useServerFn(sendDueAppointmentNotifications);
   useRealtimeSync(!!session);
   const { data: settings } = useSettings(!!session);
   useApplyTheme(settings?.theme);
@@ -71,6 +78,14 @@ function Index() {
     },
   });
   const isOwner = !!user && !!household && household.owner_id === user.id;
+
+  useEffect(() => {
+    if (!session) return;
+    const check = () => void sendNotifications().catch(() => undefined);
+    check();
+    const interval = window.setInterval(check, 60_000);
+    return () => window.clearInterval(interval);
+  }, [sendNotifications, session]);
 
   if (loading) {
     return (
@@ -97,28 +112,31 @@ function Index() {
               <p className="text-xs text-muted-foreground">Olá, {userName}</p>
             </div>
             {isOwner && (
-              <button
+              <Button
                 onClick={() => setTab(tab === "painel" ? "despensa" : "painel")}
                 aria-label="Painel do administrador"
-                className={`ml-1 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold tracking-wide transition-colors ${
-                  tab === "painel"
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-primary-soft text-primary hover:brightness-95"
-                }`}
+                title="Painel do administrador"
+                size="icon"
+                variant={tab === "painel" ? "primary" : "soft"}
+                className="ml-1"
               >
-              <Settings className="h-3.5 w-3.5" /> ADM
-              </button>
+                <Settings className="h-4 w-4" />
+              </Button>
             )}
           </div>
-          <button
-            onClick={() => setHouseOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-secondary px-3 py-2 text-xs font-semibold text-secondary-foreground"
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            Convidar
-          </button>
+          <div className="flex items-center gap-2">
+            <Button size="icon" variant="outline" onClick={() => setAssistantOpen(true)} aria-label="Abrir assistente" title="Assistente por voz">
+              <Mic className="h-4 w-4" />
+            </Button>
+            <Button size="icon" variant="outline" onClick={() => setHouseOpen(true)} aria-label="Convidar pessoa" title="Convidar pessoa">
+              <UserPlus className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </header>
+
+      <ConnectionStatus />
+      <AppointmentReminder />
 
       <main className="mx-auto max-w-2xl px-4 py-4">
         {tab === "despensa" && <InventoryScreen userName={userName} />}
@@ -147,6 +165,7 @@ function Index() {
       </nav>
 
       <HouseholdModal open={houseOpen} onClose={() => setHouseOpen(false)} />
+      <AssistantModal open={assistantOpen} onClose={() => setAssistantOpen(false)} userName={userName} />
     </div>
   );
 }
