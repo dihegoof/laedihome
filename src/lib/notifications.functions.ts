@@ -7,7 +7,11 @@ export const sendDueAppointmentNotifications = createServerFn({ method: "POST" }
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const now = new Date();
-    const horizon = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const { data: settings } = await context.supabase.from("household_settings").select("notifications_enabled,reminder_minutes,reminder_hour").limit(1).maybeSingle();
+    if (settings?.notifications_enabled === false) return { sent: 0 };
+    const lead = settings?.reminder_minutes ?? 1440;
+    const reminderHour = settings?.reminder_hour ?? 9;
+    const horizon = new Date(now.getTime() + Math.max(48 * 60, lead + 24 * 60) * 60 * 1000);
     const { data: appointments, error } = await context.supabase
       .from("appointments")
       .select("id,title,scheduled_at,created_by,notification_sent_at")
@@ -17,10 +21,6 @@ export const sendDueAppointmentNotifications = createServerFn({ method: "POST" }
       .lte("scheduled_at", horizon.toISOString());
     if (error || !appointments?.length) return { sent: 0 };
 
-    const { data: settings } = await context.supabase.from("household_settings").select("notifications_enabled,reminder_minutes,reminder_hour").limit(1).maybeSingle();
-    if (settings?.notifications_enabled === false) return { sent: 0 };
-    const lead = settings?.reminder_minutes ?? 1440;
-    const reminderHour = settings?.reminder_hour ?? 9;
     const due = appointments.filter((appointment) => {
       const localDate = new Intl.DateTimeFormat("en-CA", {
         timeZone: "America/Sao_Paulo",

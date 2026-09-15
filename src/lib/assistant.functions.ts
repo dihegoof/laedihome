@@ -5,11 +5,12 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 const commandSchema = z.object({ transcript: z.string().min(3).max(2000) });
-export type AssistantCommand = {
-  action: "add_product" | "change_product_quantity" | "add_finance" | "add_appointment" | "add_debt" | "add_goal" | "unknown";
-  summary: string;
-  payload: Record<string, string | number | boolean | null>;
-};
+const assistantCommandSchema = z.object({
+  action: z.enum(["add_product", "change_product_quantity", "add_finance", "add_appointment", "add_debt", "add_goal", "unknown"]),
+  summary: z.string().min(1).max(300),
+  payload: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null()])),
+});
+export type AssistantCommand = z.infer<typeof assistantCommandSchema>;
 
 export const understandAssistantCommand = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -31,5 +32,6 @@ export const understandAssistantCommand = createServerFn({ method: "POST" })
     const json = await response.json() as { choices?: { message?: { content?: string } }[] };
     const raw = json.choices?.[0]?.message?.content;
     if (!raw) throw new Error("Não entendi o comando");
-    return JSON.parse(raw.replace(/```json/g, "").replace(/```/g, "").trim()) as AssistantCommand;
+    const parsed: unknown = JSON.parse(raw.replace(/```json/g, "").replace(/```/g, "").trim());
+    return assistantCommandSchema.parse(parsed);
   });

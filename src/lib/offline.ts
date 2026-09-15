@@ -65,6 +65,5 @@ export async function flushOfflineMutations() {
     await database.delete(STORE_QUEUE, item.id);
     done += 1;
   }
-  window.dispatchEvent(new CustomEvent("offline-queue-change"));
   return done;
 }
