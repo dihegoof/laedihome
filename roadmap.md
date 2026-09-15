@@ -6,4 +6,4 @@
 - [x] Adicionar lembretes de compromissos com confirmação
 - [x] Adicionar configurações de ciclo financeiro e notificações no painel do dono
 - [x] Aplicar o ciclo configurável às finanças e manter dois ciclos anteriores
-- [ ] Validar tipos, build e uso no celular/desktop
+- [x] Validar tipos, build e uso no celular/desktop

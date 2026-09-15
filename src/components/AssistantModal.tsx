@@ -41,6 +41,14 @@ export function AssistantModal({ open, onClose, userName }: { open: boolean; onC
 
   useEffect(() => () => recognition.current?.stop(), []);
 
+  useEffect(() => {
+    if (!open) {
+      recognition.current?.stop();
+      recognition.current = null;
+      setListening(false);
+    }
+  }, [open]);
+
   function listen() {
     const Ctor = (window as typeof window & { SpeechRecognition?: new () => SpeechRecognitionLike; webkitSpeechRecognition?: new () => SpeechRecognitionLike }).SpeechRecognition
       ?? (window as typeof window & { webkitSpeechRecognition?: new () => SpeechRecognitionLike }).webkitSpeechRecognition;
@@ -108,8 +116,10 @@ export function AssistantModal({ open, onClose, userName }: { open: boolean; onC
         table = "finances";
         payload = { description: String(p.description ?? "Lançamento"), value: Number(p.value) || 0, type: p.type === "income" ? "income" : "expense", category: p.category ? String(p.category) : null, date: String(p.date ?? new Date().toISOString().slice(0, 10)) };
       } else if (command.action === "add_appointment") {
+        const scheduledAt = new Date(String(p.scheduled_at));
+        if (Number.isNaN(scheduledAt.getTime())) throw new Error("Não entendi a data do compromisso");
         table = "appointments";
-        payload = { title: String(p.title ?? "Compromisso"), scheduled_at: String(p.scheduled_at), created_by: user?.id ?? null, created_by_name: userName };
+        payload = { title: String(p.title ?? "Compromisso"), scheduled_at: scheduledAt.toISOString(), created_by: user?.id ?? null, created_by_name: userName };
       } else if (command.action === "add_debt") {
         const installments = Math.max(1, Number(p.total_installments) || 1);
         const total = Number(p.total_value) || 0;
