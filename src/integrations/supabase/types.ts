@@ -275,6 +275,66 @@ export type Database = {
           },
         ]
       }
+      foods: {
+        Row: {
+          active: boolean
+          brand: string | null
+          carbs_per_100g: number
+          category: string
+          created_at: string
+          created_by: string | null
+          household_id: string
+          id: string
+          image_url: string | null
+          name: string
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          brand?: string | null
+          carbs_per_100g: number
+          category: string
+          created_at?: string
+          created_by?: string | null
+          household_id?: string
+          id?: string
+          image_url?: string | null
+          name: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          brand?: string | null
+          carbs_per_100g?: number
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          household_id?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "foods_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "foods_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       goals: {
         Row: {
           achieved: boolean
@@ -365,38 +425,50 @@ export type Database = {
       }
       household_settings: {
         Row: {
+          correction_factor: number
           created_at: string
+          dose_increment: number
           finance_categories: Json
           finance_reset_day: number
           household_id: string
+          insulin_carb_ratio: number
           notifications_enabled: boolean
           product_categories: Json
           reminder_hour: number
           reminder_minutes: number
+          target_glucose: number
           theme: string
           updated_at: string
         }
         Insert: {
+          correction_factor?: number
           created_at?: string
+          dose_increment?: number
           finance_categories?: Json
           finance_reset_day?: number
           household_id?: string
+          insulin_carb_ratio?: number
           notifications_enabled?: boolean
           product_categories?: Json
           reminder_hour?: number
           reminder_minutes?: number
+          target_glucose?: number
           theme?: string
           updated_at?: string
         }
         Update: {
+          correction_factor?: number
           created_at?: string
+          dose_increment?: number
           finance_categories?: Json
           finance_reset_day?: number
           household_id?: string
+          insulin_carb_ratio?: number
           notifications_enabled?: boolean
           product_categories?: Json
           reminder_hour?: number
           reminder_minutes?: number
+          target_glucose?: number
           theme?: string
           updated_at?: string
         }
@@ -433,6 +505,117 @@ export type Database = {
           owner_id?: string | null
         }
         Relationships: []
+      }
+      meal_items: {
+        Row: {
+          brand_snapshot: string | null
+          calculated_carbs: number
+          carbs_per_100g_snapshot: number
+          created_at: string
+          food_id: string | null
+          food_name_snapshot: string
+          id: string
+          meal_id: string
+          weight_grams: number
+        }
+        Insert: {
+          brand_snapshot?: string | null
+          calculated_carbs: number
+          carbs_per_100g_snapshot: number
+          created_at?: string
+          food_id?: string | null
+          food_name_snapshot: string
+          id?: string
+          meal_id: string
+          weight_grams: number
+        }
+        Update: {
+          brand_snapshot?: string | null
+          calculated_carbs?: number
+          carbs_per_100g_snapshot?: number
+          created_at?: string
+          food_id?: string | null
+          food_name_snapshot?: string
+          id?: string
+          meal_id?: string
+          weight_grams?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_items_food_id_fkey"
+            columns: ["food_id"]
+            isOneToOne: false
+            referencedRelation: "foods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_items_meal_id_fkey"
+            columns: ["meal_id"]
+            isOneToOne: false
+            referencedRelation: "meals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meals: {
+        Row: {
+          adjusted_dose: number | null
+          correction_insulin: number
+          created_at: string
+          created_by: string | null
+          created_by_name: string
+          glucose: number
+          household_id: string
+          id: string
+          meal_insulin: number
+          parameters_used: Json
+          total_carbs: number
+          total_dose: number
+        }
+        Insert: {
+          adjusted_dose?: number | null
+          correction_insulin: number
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          glucose: number
+          household_id?: string
+          id?: string
+          meal_insulin: number
+          parameters_used: Json
+          total_carbs: number
+          total_dose: number
+        }
+        Update: {
+          adjusted_dose?: number | null
+          correction_insulin?: number
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          glucose?: number
+          household_id?: string
+          id?: string
+          meal_insulin?: number
+          parameters_used?: Json
+          total_carbs?: number
+          total_dose?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meals_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
