@@ -12,6 +12,10 @@ export type HouseholdSettings = {
   notifications_enabled: boolean;
   reminder_minutes: number;
   reminder_hour: number;
+  insulin_carb_ratio: number;
+  target_glucose: number;
+  correction_factor: number;
+  dose_increment: number;
 };
 
 export const THEMES: { key: string; label: string; swatch: string[] }[] = [
@@ -31,6 +35,10 @@ export const DEFAULT_SETTINGS = {
   notifications_enabled: true,
   reminder_minutes: 1440,
   reminder_hour: 9,
+  insulin_carb_ratio: 18,
+  target_glucose: 100,
+  correction_factor: 150,
+  dose_increment: 0.5,
 };
 
 export function useSettings(enabled = true) {
@@ -54,6 +62,10 @@ export function useSettings(enabled = true) {
         notifications_enabled: data.notifications_enabled ?? DEFAULT_SETTINGS.notifications_enabled,
         reminder_minutes: data.reminder_minutes ?? DEFAULT_SETTINGS.reminder_minutes,
         reminder_hour: data.reminder_hour ?? DEFAULT_SETTINGS.reminder_hour,
+        insulin_carb_ratio: Number(data.insulin_carb_ratio ?? DEFAULT_SETTINGS.insulin_carb_ratio),
+        target_glucose: Number(data.target_glucose ?? DEFAULT_SETTINGS.target_glucose),
+        correction_factor: Number(data.correction_factor ?? DEFAULT_SETTINGS.correction_factor),
+        dose_increment: Number(data.dose_increment ?? DEFAULT_SETTINGS.dose_increment),
       } satisfies HouseholdSettings;
     },
   });

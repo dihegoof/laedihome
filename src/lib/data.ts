@@ -26,6 +26,9 @@ const TABLES = [
   "profiles",
   "appointments",
   "household_settings",
+  "foods",
+  "meals",
+  "meal_items",
 ] as const;
 
 

@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type BucketName = "product-images" | "wardrobe" | "debt-proofs" | "appointments";
+export type BucketName = "product-images" | "wardrobe" | "debt-proofs" | "appointments" | "food-images";
 
 /** Uploads a file and returns the stored object path. */
 export async function uploadFile(bucket: BucketName, file: File | Blob, ext = "jpg") {

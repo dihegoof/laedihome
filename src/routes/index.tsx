@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarClock, History, Home, Mic, Package, Settings, Shirt, UserPlus, Wallet } from "lucide-react";
+import { CalendarClock, HeartPulse, History, Home, Mic, Package, Settings, Shirt, UserPlus, Wallet } from "lucide-react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { InventoryScreen } from "@/components/InventoryScreen";
 import { FinanceScreen } from "@/components/FinanceScreen";
@@ -14,6 +14,7 @@ import { HouseholdModal } from "@/components/HouseholdModal";
 import { AppointmentReminder } from "@/components/AppointmentReminder";
 import { AssistantModal } from "@/components/AssistantModal";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
+import { IsisScreen } from "@/components/IsisScreen";
 import { Button, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +49,7 @@ const TABS = [
   { key: "financas", label: "Finanças", icon: Wallet },
   { key: "armario", label: "Armário", icon: Shirt },
   { key: "compromissos", label: "Agenda", icon: CalendarClock },
+  { key: "isis", label: "Isis", icon: HeartPulse },
   { key: "historico", label: "Histórico", icon: History },
 ] as const;
 
@@ -143,6 +145,7 @@ function Index() {
         {tab === "financas" && <FinanceScreen userName={userName} />}
         {tab === "armario" && <WardrobeScreen userName={userName} />}
         {tab === "compromissos" && <AppointmentsScreen userName={userName} />}
+        {tab === "isis" && <IsisScreen userName={userName} />}
         {tab === "historico" && <HistoryScreen />}
         {tab === "painel" && isOwner && <AdminScreen userName={userName} />}
       </main>
