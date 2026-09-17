@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bell, CalendarRange, Check, Clock, Palette, Plus, Tag, Trash2, Wallet } from "lucide-react";
+import { Bell, Calculator, CalendarRange, Check, Clock, Palette, Plus, Tag, Trash2, Wallet } from "lucide-react";
 import { Button, EmptyState, Field, Spinner } from "@/components/kit";
 import { logHistory } from "@/lib/data";
 import {
@@ -22,6 +22,10 @@ export function AdminScreen({ userName }: { userName: string }) {
   const notificationsEnabled = settings?.notifications_enabled ?? DEFAULT_SETTINGS.notifications_enabled;
   const reminderMinutes = settings?.reminder_minutes ?? DEFAULT_SETTINGS.reminder_minutes;
   const reminderHour = settings?.reminder_hour ?? DEFAULT_SETTINGS.reminder_hour;
+  const insulinRatio = settings?.insulin_carb_ratio ?? DEFAULT_SETTINGS.insulin_carb_ratio;
+  const targetGlucose = settings?.target_glucose ?? DEFAULT_SETTINGS.target_glucose;
+  const correctionFactor = settings?.correction_factor ?? DEFAULT_SETTINGS.correction_factor;
+  const doseIncrement = settings?.dose_increment ?? DEFAULT_SETTINGS.dose_increment;
 
   async function apply(patch: Parameters<typeof save>[0], log: string) {
     setBusy(true);
@@ -40,6 +44,24 @@ export function AdminScreen({ userName }: { userName: string }) {
 
   return (
     <div className="space-y-4">
+      <section className="surface p-4">
+        <header className="mb-3 flex items-center gap-2">
+          <Calculator className="h-4 w-4 text-primary" />
+          <h3 className="text-base">Parâmetros da Isis</h3>
+        </header>
+        <div className="grid grid-cols-2 gap-3">
+          <SettingNumber label="Relação (g/U)" value={insulinRatio} disabled={busy} min={0.001} onSave={(value) => apply({ insulin_carb_ratio: value }, "alterou a relação insulina/carboidrato")} />
+          <SettingNumber label="Glicemia alvo" value={targetGlucose} disabled={busy} min={0} onSave={(value) => apply({ target_glucose: value }, "alterou a glicemia alvo")} />
+          <SettingNumber label="Fator (mg/dL/U)" value={correctionFactor} disabled={busy} min={0.001} onSave={(value) => apply({ correction_factor: value }, "alterou o fator de correção")} />
+          <Field label="Incremento de dose">
+            <select className="field" value={doseIncrement} disabled={busy} onChange={(event) => void apply({ dose_increment: Number(event.target.value) }, "alterou o incremento de dose")}>
+              <option value={0.25}>0,25 U</option><option value={0.5}>0,5 U</option><option value={1}>1 U</option>
+            </select>
+          </Field>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">Use somente os parâmetros informados pela equipe de saúde. A configuração vale para toda a casa.</p>
+      </section>
+
       <section className="surface p-4">
         <header className="mb-3 flex items-center gap-2">
           <Palette className="h-4 w-4 text-primary" />
@@ -157,6 +179,12 @@ export function AdminScreen({ userName }: { userName: string }) {
       />
     </div>
   );
+}
+
+function SettingNumber({ label, value, disabled, min, onSave }: { label: string; value: number; disabled: boolean; min: number; onSave: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  return <Field label={label}><input className="field" inputMode="decimal" value={draft} disabled={disabled} onChange={(event) => setDraft(event.target.value)} onBlur={() => { const next = Number(draft.replace(",", ".")); if (Number.isFinite(next) && next >= min && next !== value) onSave(next); else setDraft(String(value)); }} /></Field>;
 }
 
 function CategoryEditor({

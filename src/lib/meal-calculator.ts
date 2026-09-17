@@ -25,6 +25,16 @@ export function calculateInsulin(
   glucose: number,
   parameters: InsulinParameters,
 ): MealCalculation {
+  if (!Number.isFinite(glucose) || glucose <= 0) throw new Error("Glicemia inválida");
+  if (!Number.isFinite(parameters.insulinCarbRatio) || parameters.insulinCarbRatio <= 0) {
+    throw new Error("Relação insulina/carboidrato inválida");
+  }
+  if (!Number.isFinite(parameters.correctionFactor) || parameters.correctionFactor <= 0) {
+    throw new Error("Fator de correção inválido");
+  }
+  if (!Number.isFinite(parameters.doseIncrement) || parameters.doseIncrement <= 0) {
+    throw new Error("Incremento de dose inválido");
+  }
   const totalCarbsMilli = itemCarbs.reduce((sum, value) => sum + Math.round(value * 1000), 0);
   const totalCarbs = totalCarbsMilli / 1000;
   const mealInsulin = totalCarbs / parameters.insulinCarbRatio;
@@ -32,7 +42,10 @@ export function calculateInsulin(
     ? (glucose - parameters.targetGlucose) / parameters.correctionFactor
     : 0;
   const totalDose = mealInsulin + correctionInsulin;
-  const adjustedDose = Math.round(totalDose / parameters.doseIncrement) * parameters.doseIncrement;
+  const incrementDecimals = String(parameters.doseIncrement).split(".")[1]?.length ?? 0;
+  const adjustedDose = Number(
+    (Math.round(totalDose / parameters.doseIncrement) * parameters.doseIncrement).toFixed(incrementDecimals),
+  );
   return { totalCarbs, mealInsulin, correctionInsulin, totalDose, adjustedDose };
 }
 
