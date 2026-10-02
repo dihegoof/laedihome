@@ -111,6 +111,121 @@ export type Database = {
           },
         ]
       }
+      cleaning_history: {
+        Row: {
+          completed_at: string
+          completed_by: string | null
+          completed_by_name: string
+          household_id: string
+          id: string
+          schedule_id: string
+          schedule_name_snapshot: string
+          scheduled_for: string
+        }
+        Insert: {
+          completed_at?: string
+          completed_by?: string | null
+          completed_by_name: string
+          household_id?: string
+          id?: string
+          schedule_id: string
+          schedule_name_snapshot: string
+          scheduled_for: string
+        }
+        Update: {
+          completed_at?: string
+          completed_by?: string | null
+          completed_by_name?: string
+          household_id?: string
+          id?: string
+          schedule_id?: string
+          schedule_name_snapshot?: string
+          scheduled_for?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_history_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_history_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_history_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "cleaning_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cleaning_schedules: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_by_name: string
+          household_id: string
+          id: string
+          interval_days: number | null
+          name: string
+          next_due_at: string
+          notes: string | null
+          recurrence_type: string
+          updated_at: string
+          weekdays: number[]
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name: string
+          household_id?: string
+          id?: string
+          interval_days?: number | null
+          name: string
+          next_due_at: string
+          notes?: string | null
+          recurrence_type: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_by_name?: string
+          household_id?: string
+          id?: string
+          interval_days?: number | null
+          name?: string
+          next_due_at?: string
+          notes?: string | null
+          recurrence_type?: string
+          updated_at?: string
+          weekdays?: number[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cleaning_schedules_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cleaning_schedules_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       debts: {
         Row: {
           client_mutation_id: string | null
@@ -805,6 +920,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_cleaning: {
+        Args: {
+          _completed_by_name: string
+          _next_due_at: string
+          _schedule_id: string
+        }
+        Returns: undefined
+      }
       current_household: { Args: never; Returns: string }
       email_for_name: { Args: { _name: string }; Returns: string }
       is_household_owner: { Args: { _household_id: string }; Returns: boolean }
