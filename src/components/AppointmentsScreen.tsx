@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, Mic, Pause, Play, Plus, Search, Square, Trash2, User } from "lucide-react";
+import { CalendarClock, Mic, Pause, Play, Plus, Search, Sparkles, Square, Trash2, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
+import { CleaningSchedule } from "@/components/CleaningSchedule";
 import { useAuth } from "@/hooks/useAuth";
 import { logHistory, useAppointments, useInvalidate } from "@/lib/data";
 import { getSignedUrl, uploadFile } from "@/lib/storage";
@@ -64,6 +65,7 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
   const [open, setOpen] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<"appointments" | "cleaning">("appointments");
 
   const startOfToday = useMemo(() => {
     const d = new Date();
@@ -103,20 +105,24 @@ export function AppointmentsScreen({ userName }: { userName: string }) {
     void logHistory(userName, "apagou compromisso", a.title ?? fmtTime(a.scheduled_at));
   }
 
+  if (view === "cleaning") {
+    return <CleaningSchedule userName={userName} onBack={() => setView("appointments")} />;
+  }
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Mic className="h-4 w-4" /> Novo compromisso
-        </Button>
-        {pastCount > 0 && (
-          <button
-            onClick={() => setShowPast((v) => !v)}
-            className="text-xs font-semibold text-muted-foreground underline-offset-2 hover:underline"
-          >
-            {showPast ? "Esconder passados" : `Ver passados (${pastCount})`}
-          </button>
-        )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <Mic className="h-4 w-4" /> Novo compromisso
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setView("cleaning")}>
+            <Sparkles className="h-4 w-4" /> Limpeza
+          </Button>
+        </div>
+        {pastCount > 0 && <Button size="sm" variant="ghost" onClick={() => setShowPast((v) => !v)}>
+          {showPast ? "Esconder passados" : `Ver passados (${pastCount})`}
+        </Button>}
       </div>
 
       <div className="relative">

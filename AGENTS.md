@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep the cleaning schedule as an Agenda subview backed by household-scoped schedules and immutable completion history, so the main navigation remains unchanged.

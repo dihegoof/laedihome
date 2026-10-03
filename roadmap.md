@@ -13,4 +13,7 @@
 - [x] Adicionar parâmetros de insulina no painel do dono
 - [x] Salvar e exibir o histórico detalhado das refeições
 - [x] Integrar a aba Isis sem alterar as demais abas
+- [x] Remover os avisos em laranja da Isis
+- [x] Adicionar cronograma compartilhado de limpeza dentro da Agenda
+- [x] Adicionar repetição, conclusão e histórico das limpezas
 - [ ] Validar permissões, cálculos, build e telas em celular/desktop
