@@ -177,6 +177,7 @@ export type Database = {
           name: string
           next_due_at: string
           notes: string | null
+          notification_sent_for: string | null
           recurrence_type: string
           updated_at: string
           weekdays: number[]
@@ -191,6 +192,7 @@ export type Database = {
           name: string
           next_due_at: string
           notes?: string | null
+          notification_sent_for?: string | null
           recurrence_type: string
           updated_at?: string
           weekdays?: number[]
@@ -205,6 +207,7 @@ export type Database = {
           name?: string
           next_due_at?: string
           notes?: string | null
+          notification_sent_for?: string | null
           recurrence_type?: string
           updated_at?: string
           weekdays?: number[]
@@ -540,6 +543,9 @@ export type Database = {
       }
       household_settings: {
         Row: {
+          cleaning_notifications_enabled: boolean
+          cleaning_reminder_hour: number
+          cleaning_reminder_minutes: number
           correction_factor: number
           created_at: string
           dose_increment: number
@@ -556,6 +562,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cleaning_notifications_enabled?: boolean
+          cleaning_reminder_hour?: number
+          cleaning_reminder_minutes?: number
           correction_factor?: number
           created_at?: string
           dose_increment?: number
@@ -572,6 +581,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cleaning_notifications_enabled?: boolean
+          cleaning_reminder_hour?: number
+          cleaning_reminder_minutes?: number
           correction_factor?: number
           created_at?: string
           dose_increment?: number
