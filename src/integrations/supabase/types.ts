@@ -942,8 +942,18 @@ export type Database = {
       }
       current_household: { Args: never; Returns: string }
       email_for_name: { Args: { _name: string }; Returns: string }
+      household_notification_devices: {
+        Args: never
+        Returns: {
+          token: string
+        }[]
+      }
       is_household_owner: { Args: { _household_id: string }; Returns: boolean }
       join_household: { Args: { _code: string }; Returns: string }
+      remove_household_notification_device: {
+        Args: { _token: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
