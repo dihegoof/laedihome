@@ -15,6 +15,13 @@
       "when": 1791129849552,
       "tag": "0001_add_cleaning_notification_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791204785316,
+      "tag": "0002_add_cleaning_notification_settings",
+      "breakpoints": true
     }
   ]
 }
