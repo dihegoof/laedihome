@@ -12,6 +12,9 @@ export type HouseholdSettings = {
   notifications_enabled: boolean;
   reminder_minutes: number;
   reminder_hour: number;
+  cleaning_notifications_enabled: boolean;
+  cleaning_reminder_minutes: number;
+  cleaning_reminder_hour: number;
   insulin_carb_ratio: number;
   target_glucose: number;
   correction_factor: number;
@@ -35,6 +38,9 @@ export const DEFAULT_SETTINGS = {
   notifications_enabled: true,
   reminder_minutes: 1440,
   reminder_hour: 9,
+  cleaning_notifications_enabled: true,
+  cleaning_reminder_minutes: 1440,
+  cleaning_reminder_hour: 9,
   insulin_carb_ratio: 18,
   target_glucose: 100,
   correction_factor: 150,
@@ -62,6 +68,9 @@ export function useSettings(enabled = true) {
         notifications_enabled: data.notifications_enabled ?? DEFAULT_SETTINGS.notifications_enabled,
         reminder_minutes: data.reminder_minutes ?? DEFAULT_SETTINGS.reminder_minutes,
         reminder_hour: data.reminder_hour ?? DEFAULT_SETTINGS.reminder_hour,
+        cleaning_notifications_enabled: data.cleaning_notifications_enabled ?? DEFAULT_SETTINGS.cleaning_notifications_enabled,
+        cleaning_reminder_minutes: data.cleaning_reminder_minutes ?? DEFAULT_SETTINGS.cleaning_reminder_minutes,
+        cleaning_reminder_hour: data.cleaning_reminder_hour ?? DEFAULT_SETTINGS.cleaning_reminder_hour,
         insulin_carb_ratio: Number(data.insulin_carb_ratio ?? DEFAULT_SETTINGS.insulin_carb_ratio),
         target_glucose: Number(data.target_glucose ?? DEFAULT_SETTINGS.target_glucose),
         correction_factor: Number(data.correction_factor ?? DEFAULT_SETTINGS.correction_factor),

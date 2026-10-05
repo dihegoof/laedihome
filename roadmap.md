@@ -16,4 +16,6 @@
 - [x] Remover os avisos em laranja da Isis
 - [x] Adicionar cronograma compartilhado de limpeza dentro da Agenda
 - [x] Adicionar repetição, conclusão e histórico das limpezas
+- [x] Enviar alertas de lavagem pelo Firebase aos aparelhos ativados da casa
+- [x] Adicionar parâmetros de alertas de lavagem no painel do dono
 - [ ] Validar permissões, cálculos, build e telas em celular/desktop
