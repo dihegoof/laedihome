@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bell, Calculator, CalendarRange, Check, Clock, Palette, Plus, Tag, Trash2, Wallet } from "lucide-react";
+import { Bell, Calculator, CalendarRange, Check, Clock, Palette, Plus, Sparkles, Tag, Trash2, Wallet } from "lucide-react";
 import { Button, EmptyState, Field, Spinner } from "@/components/kit";
 import { logHistory } from "@/lib/data";
 import {
@@ -22,6 +22,9 @@ export function AdminScreen({ userName }: { userName: string }) {
   const notificationsEnabled = settings?.notifications_enabled ?? DEFAULT_SETTINGS.notifications_enabled;
   const reminderMinutes = settings?.reminder_minutes ?? DEFAULT_SETTINGS.reminder_minutes;
   const reminderHour = settings?.reminder_hour ?? DEFAULT_SETTINGS.reminder_hour;
+  const cleaningNotificationsEnabled = settings?.cleaning_notifications_enabled ?? DEFAULT_SETTINGS.cleaning_notifications_enabled;
+  const cleaningReminderMinutes = settings?.cleaning_reminder_minutes ?? DEFAULT_SETTINGS.cleaning_reminder_minutes;
+  const cleaningReminderHour = settings?.cleaning_reminder_hour ?? DEFAULT_SETTINGS.cleaning_reminder_hour;
   const insulinRatio = settings?.insulin_carb_ratio ?? DEFAULT_SETTINGS.insulin_carb_ratio;
   const targetGlucose = settings?.target_glucose ?? DEFAULT_SETTINGS.target_glucose;
   const correctionFactor = settings?.correction_factor ?? DEFAULT_SETTINGS.correction_factor;
@@ -160,6 +163,53 @@ export function AdminScreen({ userName }: { userName: string }) {
           </Field>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">Cada pessoa ativa a permissão no próprio aparelho pelo botão do microfone.</p>
+      </section>
+
+      <section className="surface p-4">
+        <header className="mb-3 flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <h3 className="text-base">Avisos de lavagem</h3>
+        </header>
+        <Button
+          variant={cleaningNotificationsEnabled ? "primary" : "outline"}
+          size="sm"
+          disabled={busy}
+          onClick={() => void apply(
+            { cleaning_notifications_enabled: !cleaningNotificationsEnabled },
+            cleaningNotificationsEnabled ? "desativou os avisos de lavagem" : "ativou os avisos de lavagem",
+          )}
+        >
+          <Bell className="h-4 w-4" /> {cleaningNotificationsEnabled ? "Avisos ativados" : "Avisos desativados"}
+        </Button>
+        <div className="mt-4 grid grid-cols-2 gap-3">
+          <Field label="Antecedência">
+            <select
+              className="field"
+              value={cleaningReminderMinutes}
+              disabled={busy || !cleaningNotificationsEnabled}
+              onChange={(event) => void apply({ cleaning_reminder_minutes: Number(event.target.value) }, "mudou a antecedência dos avisos de lavagem")}
+            >
+              <option value={0}>No mesmo dia</option>
+              <option value={1440}>1 dia antes</option>
+              <option value={2880}>2 dias antes</option>
+              <option value={10080}>7 dias antes</option>
+            </select>
+          </Field>
+          <Field label="Horário">
+            <div className="relative">
+              <Clock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <select
+                className="field pl-9"
+                value={cleaningReminderHour}
+                disabled={busy || !cleaningNotificationsEnabled}
+                onChange={(event) => void apply({ cleaning_reminder_hour: Number(event.target.value) }, "mudou o horário dos avisos de lavagem")}
+              >
+                {Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, "0")}:00</option>)}
+              </select>
+            </div>
+          </Field>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">O aviso é enviado aos aparelhos ativados das pessoas da casa.</p>
       </section>
 
       <CategoryEditor

@@ -19,7 +19,7 @@ import { Button, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/data";
-import { sendDueAppointmentNotifications } from "@/lib/notifications.functions";
+import { sendDueAppointmentNotifications, sendDueCleaningNotifications } from "@/lib/notifications.functions";
 import { useApplyTheme, useSettings } from "@/lib/settings";
 
 export const Route = createFileRoute("/")({
@@ -61,6 +61,7 @@ function Index() {
   const [houseOpen, setHouseOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const sendNotifications = useServerFn(sendDueAppointmentNotifications);
+  const sendCleaningNotifications = useServerFn(sendDueCleaningNotifications);
   useRealtimeSync(!!session);
   const { data: settings } = useSettings(!!session);
   useApplyTheme(settings?.theme);
@@ -83,11 +84,14 @@ function Index() {
 
   useEffect(() => {
     if (!session) return;
-    const check = () => void sendNotifications().catch(() => undefined);
+    const check = () => {
+      void sendNotifications().catch(() => undefined);
+      void sendCleaningNotifications().catch(() => undefined);
+    };
     check();
     const interval = window.setInterval(check, 60_000);
     return () => window.clearInterval(interval);
-  }, [sendNotifications, session]);
+  }, [sendCleaningNotifications, sendNotifications, session]);
 
   if (loading) {
     return (

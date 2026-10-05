@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep the cleaning schedule as an Agenda subview backed by household-scoped schedules and immutable completion history, so the main navigation remains unchanged.
+- Send cleaning reminders through authenticated server functions to every enabled device in the current household, because connector credentials must remain server-only.

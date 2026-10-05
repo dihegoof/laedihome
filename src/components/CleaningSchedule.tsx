@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarDays, Check, Clock3, History, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Bell, CalendarDays, Check, Clock3, History, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { enablePush, type PushStatus } from "@/lib/notifications";
+import { DEFAULT_SETTINGS, useSettings } from "@/lib/settings";
 
 type RecurrenceType = "weekly" | "interval";
 
@@ -17,6 +19,7 @@ type CleaningScheduleRow = {
   interval_days: number | null;
   next_due_at: string;
   created_by_name: string;
+  notification_sent_for: string | null;
 };
 
 type CleaningHistoryRow = {
@@ -147,12 +150,23 @@ function nextDue(schedule: CleaningScheduleRow) {
   return fallback;
 }
 
+function pushMessage(status: PushStatus) {
+  if (status === "registered") return "Alertas de lavagem ativados neste aparelho.";
+  if (status === "open-in-new-tab") return "Abra o aplicativo em uma nova aba ou use a versão publicada.";
+  if (status === "install-on-iphone") return "No iPhone, adicione o Nossa Casa à Tela de Início e abra por lá.";
+  if (status === "denied") return "Permissão negada. Libere as notificações nas configurações do navegador.";
+  if (status === "not-configured") return "A conexão de notificações precisa incluir Web Push.";
+  return "Este aparelho não oferece notificações pelo navegador.";
+}
+
 export function CleaningSchedule({ userName, onBack }: { userName: string; onBack: () => void }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<CleaningDraft | null>(null);
   const [showHistory, setShowHistory] = useState(false);
   const [completingId, setCompletingId] = useState<string | null>(null);
+  const [enablingAlerts, setEnablingAlerts] = useState(false);
+  const { data: settings } = useSettings();
 
   const { data: schedules = [], isLoading } = useQuery({
     queryKey: ["cleaning_schedules"],
@@ -187,6 +201,22 @@ export function CleaningSchedule({ userName, onBack }: { userName: string; onBac
       void supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
+  const nextSchedule = schedules[0];
+  const cleaningAlertsEnabled = settings?.cleaning_notifications_enabled ?? DEFAULT_SETTINGS.cleaning_notifications_enabled;
+
+  async function activateAlerts() {
+    if (!user) return;
+    setEnablingAlerts(true);
+    try {
+      const status = await enablePush(user.id);
+      toast[status === "registered" ? "success" : "info"](pushMessage(status));
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não consegui ativar os alertas");
+    } finally {
+      setEnablingAlerts(false);
+    }
+  }
 
   async function remove(schedule: CleaningScheduleRow) {
     if (!confirm(`Excluir a limpeza “${schedule.name}” e seu histórico?`)) return;
@@ -229,6 +259,27 @@ export function CleaningSchedule({ userName, onBack }: { userName: string; onBac
           <Plus className="h-4 w-4" /> Nova limpeza
         </Button>
       </div>
+
+      <section className="surface p-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary">
+            <Bell className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">Alertas de lavagem</p>
+            <p className="text-xs text-muted-foreground">
+              {!cleaningAlertsEnabled
+                ? "Desativados pelo administrador da casa"
+                : nextSchedule
+                  ? `Próxima: ${nextSchedule.name} · ${formatDue(nextSchedule.next_due_at)}`
+                  : "Nenhuma lavagem pendente"}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" disabled={!cleaningAlertsEnabled || enablingAlerts} onClick={() => void activateAlerts()}>
+            {enablingAlerts ? <Spinner /> : <Bell className="h-4 w-4" />} Ativar
+          </Button>
+        </div>
+      </section>
 
       {showHistory ? (
         <CleaningHistory history={history} loading={historyLoading} />
@@ -367,6 +418,7 @@ function CleaningModal({
       next_due_at: due.toISOString(),
       created_by: userId,
       created_by_name: userName,
+      notification_sent_for: null,
     };
     const query = form.id
       ? supabase.from("cleaning_schedules").update(payload).eq("id", form.id)
