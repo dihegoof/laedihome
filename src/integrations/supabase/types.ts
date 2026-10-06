@@ -744,6 +744,110 @@ export type Database = {
           },
         ]
       }
+      menu_ingredients: {
+        Row: {
+          id: string
+          plan_id: string
+          product_id: string | null
+          product_name: string
+          quantity: number
+          stock_quantity: number
+          stock_unit_snapshot: string
+          unit: string
+        }
+        Insert: {
+          id?: string
+          plan_id: string
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          stock_quantity: number
+          stock_unit_snapshot: string
+          unit: string
+        }
+        Update: {
+          id?: string
+          plan_id?: string
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          stock_quantity?: number
+          stock_unit_snapshot?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_ingredients_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "menu_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menu_ingredients_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menu_plans: {
+        Row: {
+          confirmed_at: string | null
+          confirmed_by_name: string | null
+          created_at: string
+          created_by: string
+          created_by_name: string
+          household_id: string
+          id: string
+          meal_date: string
+          meal_time: string
+          meal_type: string
+          notes: string | null
+          status: string
+          title: string
+        }
+        Insert: {
+          confirmed_at?: string | null
+          confirmed_by_name?: string | null
+          created_at?: string
+          created_by: string
+          created_by_name: string
+          household_id?: string
+          id?: string
+          meal_date: string
+          meal_time: string
+          meal_type: string
+          notes?: string | null
+          status?: string
+          title: string
+        }
+        Update: {
+          confirmed_at?: string | null
+          confirmed_by_name?: string | null
+          created_at?: string
+          created_by?: string
+          created_by_name?: string
+          household_id?: string
+          id?: string
+          meal_date?: string
+          meal_time?: string
+          meal_type?: string
+          notes?: string | null
+          status?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menu_plans_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       products: {
         Row: {
           category: string | null
@@ -758,6 +862,7 @@ export type Database = {
           notes: string | null
           out_of_stock_since: string | null
           quantity: number
+          stock_unit: string
         }
         Insert: {
           category?: string | null
@@ -772,6 +877,7 @@ export type Database = {
           notes?: string | null
           out_of_stock_since?: string | null
           quantity?: number
+          stock_unit?: string
         }
         Update: {
           category?: string | null
@@ -786,6 +892,7 @@ export type Database = {
           notes?: string | null
           out_of_stock_since?: string | null
           quantity?: number
+          stock_unit?: string
         }
         Relationships: [
           {
@@ -940,7 +1047,12 @@ export type Database = {
         }
         Returns: undefined
       }
+      confirm_menu_plan: {
+        Args: { _id: string; _prepared: boolean }
+        Returns: undefined
+      }
       current_household: { Args: never; Returns: string }
+      delete_menu_plan: { Args: { _id: string }; Returns: undefined }
       email_for_name: { Args: { _name: string }; Returns: string }
       household_notification_devices: {
         Args: never
@@ -950,9 +1062,25 @@ export type Database = {
       }
       is_household_owner: { Args: { _household_id: string }; Returns: boolean }
       join_household: { Args: { _code: string }; Returns: string }
+      menu_stock_amount: {
+        Args: { _quantity: number; _stock_unit: string; _unit: string }
+        Returns: number
+      }
       remove_household_notification_device: {
         Args: { _token: string }
         Returns: undefined
+      }
+      save_menu_plan: {
+        Args: {
+          _date: string
+          _id: string
+          _ingredients: Json
+          _notes: string
+          _time: string
+          _title: string
+          _type: string
+        }
+        Returns: string
       }
     }
     Enums: {
