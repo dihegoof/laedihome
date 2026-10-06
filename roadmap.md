@@ -19,3 +19,4 @@
 - [x] Enviar alertas de lavagem pelo Firebase aos aparelhos ativados da casa
 - [x] Adicionar parâmetros de alertas de lavagem no painel do dono
 - [ ] Validar permissões, cálculos, build e telas em celular/desktop
+- [ ] Adicionar cardápio semanal acessível por botão na Despensa, com ingredientes do estoque e consumo ao confirmar preparo
