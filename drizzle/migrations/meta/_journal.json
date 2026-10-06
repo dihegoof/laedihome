@@ -29,6 +29,13 @@
       "when": 1791204839007,
       "tag": "0003_secure_household_cleaning_notification_devices",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791305188036,
+      "tag": "0004_weekly_menu_and_pantry_measures",
+      "breakpoints": true
     }
   ]
 }

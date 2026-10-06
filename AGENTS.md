@@ -11,3 +11,5 @@
 
 - Keep the cleaning schedule as an Agenda subview backed by household-scoped schedules and immutable completion history, so the main navigation remains unchanged.
 - Send cleaning reminders through authenticated server functions to every enabled device in the current household, because connector credentials must remain server-only.
+- Keep meal planning as a Pantry subview; perform preparation and inventory consumption in one household-validated database transaction with row locks, so simultaneous confirmations cannot double-consume stock.
+- Store an explicit stock unit on products and snapshot ingredient measures in meal plans; reject incompatible measures and changed stock units rather than guessing package sizes.
