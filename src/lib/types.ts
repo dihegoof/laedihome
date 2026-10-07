@@ -4,6 +4,7 @@ export type Product = {
   name: string;
   category: string | null;
   quantity: number;
+  stock_unit: "un" | "g" | "kg" | "ml" | "l";
   is_essential: boolean;
   is_new: boolean;
   out_of_stock_since: string | null;
