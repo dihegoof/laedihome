@@ -23,6 +23,9 @@ import { sendDueAppointmentNotifications, sendDueCleaningNotifications } from "@
 import { useApplyTheme, useSettings } from "@/lib/settings";
 
 export const Route = createFileRoute("/")({
+  validateSearch: (search: Record<string, unknown>): { menuWeek?: string } => ({
+    menuWeek: typeof search.menuWeek === "string" && /^\d{4}-\d{2}-\d{2}$/.test(search.menuWeek) && Number.isFinite(new Date(`${search.menuWeek}T12:00:00`).getTime()) ? search.menuWeek : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Nossa Casa — despensa, finanças e guarda-roupa a dois" },

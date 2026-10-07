@@ -4,6 +4,7 @@ import {
   Camera,
   ClipboardList,
   Copy,
+  CookingPot,
   Minus,
   Package,
   Pencil,
@@ -16,6 +17,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
+import { WeeklyMenu } from "@/components/WeeklyMenu";
+import { STOCK_UNITS, type StockUnit } from "@/lib/weekly-menu";
 import { useInvalidate, useProducts, logHistory } from "@/lib/data";
 import { type Product } from "@/lib/types";
 import { useProductCategories } from "@/lib/settings";
@@ -28,6 +31,7 @@ type Draft = {
   name: string;
   category: string;
   quantity: string;
+  stock_unit: StockUnit;
   is_essential: boolean;
   image_url: string | null;
   notes: string;
@@ -37,6 +41,7 @@ const emptyDraft: Draft = {
   name: "",
   category: "",
   quantity: "1",
+  stock_unit: "un",
   is_essential: false,
   image_url: null,
   notes: "",
@@ -52,6 +57,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -103,6 +109,8 @@ export function InventoryScreen({ userName }: { userName: string }) {
 
 
 
+
+  if (menuOpen) return <WeeklyMenu products={products} onBack={() => setMenuOpen(false)} />;
 
   return (
     <div className="space-y-4">
@@ -157,6 +165,9 @@ export function InventoryScreen({ userName }: { userName: string }) {
           <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
             <Copy className="h-4 w-4" /> Gerar lista
           </Button>
+          <Button size="sm" variant="soft" onClick={() => setMenuOpen(true)}>
+            <CookingPot className="h-4 w-4" /> Cardápio semanal
+          </Button>
         </div>
       </div>
 
@@ -194,7 +205,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
                   )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {Number(p.quantity) > 0 ? (
-                      <>Em casa: {qty(Number(p.quantity))}</>
+                      <>Em casa: {qty(Number(p.quantity))} {p.stock_unit ?? "un"}</>
                     ) : (
                       <span className="text-destructive">
                         Acabou{p.out_of_stock_since ? ` há ${daysSince(p.out_of_stock_since)} dia(s)` : ""}
@@ -228,6 +239,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
                             name: p.name,
                             category: p.category ?? categories[0] ?? "",
                             quantity: String(p.quantity),
+                            stock_unit: p.stock_unit ?? "un",
                             is_essential: p.is_essential,
                             image_url: p.image_url,
                             notes: p.notes ?? "",
@@ -332,12 +344,14 @@ function ProductModal({
   async function save() {
     if (!local) return;
     if (!local.name.trim()) return toast.error("Informe o nome do produto");
+    const quantity = Number(local.quantity.replace(",", "."));
+    if (!local.quantity.trim() || !Number.isFinite(quantity) || quantity < 0 || !/^\d+(?:[.,]\d{1,3})?$/.test(local.quantity)) return toast.error("Informe uma quantidade válida com até 3 casas decimais");
     setBusy(true);
-    const quantity = Number(local.quantity.replace(",", ".")) || 0;
     const payload = {
       name: local.name.trim(),
       category: local.category,
       quantity,
+      stock_unit: local.stock_unit,
       is_essential: local.is_essential,
       image_url: local.image_url,
       notes: local.notes.trim() || null,
@@ -402,6 +416,12 @@ function ProductModal({
               />
             </Field>
           </div>
+
+          <Field label="Medida do estoque">
+            <select className="field" value={local.stock_unit} onChange={(e) => setLocal({ ...local, stock_unit: e.target.value as StockUnit })}>
+              {STOCK_UNITS.map((unit) => <option key={unit} value={unit}>{unit === "un" ? "un — unidades" : unit === "l" ? "l — litros" : unit}</option>)}
+            </select>
+          </Field>
 
           <Field label="Observação (ex.: congelado em 07/09)">
             <textarea
