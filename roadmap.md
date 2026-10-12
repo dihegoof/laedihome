@@ -20,3 +20,6 @@
 - [x] Adicionar parâmetros de alertas de lavagem no painel do dono
 - [ ] Validação das telas e notificações reais no celular pelo usuário, conforme combinado
 - [x] Criar tela do cardápio semanal pelo botão da Despensa, com dias, refeições, ingredientes e confirmação de preparo
+- [ ] Ajustar medidas do cardápio para receitas em g/kg e ml/l usando o mesmo estoque
+- [ ] Remover horário do cadastro e organizar refeições por tipo
+- [ ] Adicionar cancelamento de confirmação com devolução dos ingredientes
