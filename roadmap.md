@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Corrigir leitura das 12 colunas sem títulos, agrupamento por DT e pallets por produto
+- [ ] Simplificar espelho e finalização de faturamento, erros, espera e etapas independentes
+- [ ] Separar cargas do dia e histórico temporário de 30 dias
+
 - [x] Restaurar o build e o acesso às contas já vinculadas
 - [x] Corrigir as proteções da casa e dos arquivos sem perder dados
 - [x] Integrar offline, sincronização e assistente por voz na tela principal
