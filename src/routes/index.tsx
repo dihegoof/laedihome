@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { CalendarClock, HeartPulse, History, Home, Mic, Package, Settings, Shirt, UserPlus, Wallet } from "lucide-react";
+import { CalendarClock, HeartPulse, History, Home, Mic, Package, Settings, Shirt, Truck, UserPlus, Wallet } from "lucide-react";
 import { AuthScreen } from "@/components/AuthScreen";
 import { InventoryScreen } from "@/components/InventoryScreen";
 import { FinanceScreen } from "@/components/FinanceScreen";
@@ -15,6 +15,7 @@ import { AppointmentReminder } from "@/components/AppointmentReminder";
 import { AssistantModal } from "@/components/AssistantModal";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { IsisScreen } from "@/components/IsisScreen";
+import { CargoScreen } from "@/components/CargoScreen";
 import { Button, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +55,7 @@ const TABS = [
   { key: "compromissos", label: "Agenda", icon: CalendarClock },
   { key: "isis", label: "Isis", icon: HeartPulse },
   { key: "historico", label: "Histórico", icon: History },
+  { key: "cargas", label: "Cargas", icon: Truck },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"] | "painel";
@@ -147,13 +149,14 @@ function Index() {
       <ConnectionStatus />
       <AppointmentReminder />
 
-      <main className="mx-auto max-w-2xl px-4 py-4">
+      <main className={`mx-auto px-4 py-4 ${tab === "cargas" ? "max-w-4xl" : "max-w-2xl"}`}>
         {tab === "despensa" && <InventoryScreen userName={userName} />}
         {tab === "financas" && <FinanceScreen userName={userName} />}
         {tab === "armario" && <WardrobeScreen userName={userName} />}
         {tab === "compromissos" && <AppointmentsScreen userName={userName} />}
         {tab === "isis" && <IsisScreen userName={userName} />}
         {tab === "historico" && <HistoryScreen />}
+        {tab === "cargas" && <CargoScreen />}
         {tab === "painel" && isOwner && <AdminScreen userName={userName} />}
       </main>
 

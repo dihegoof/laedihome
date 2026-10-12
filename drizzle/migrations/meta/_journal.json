@@ -43,6 +43,13 @@
       "when": 1791820822122,
       "tag": "0005_undo_weekly_menu_confirmation",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791822441411,
+      "tag": "0006_cargo_control",
+      "breakpoints": true
     }
   ]
 }

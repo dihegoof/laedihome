@@ -16,3 +16,4 @@
 - Keep weekly-menu dates in route search and subscribe to household-scoped Query data inside the Pantry subview; reuse database RPCs for online-only mutations to preserve atomic stock consumption.
 - Undo menu confirmations through a household-scoped RPC locking the plan and stock rows, checking the original confirmation timestamp, and restoring snapshot quantities once; this prevents duplicate refunds or stale cancellation of a later preparation.
 - Order weekly-menu meals by meal type and keep legacy time values only for RPC compatibility, so the editor never requires a user-entered time.
+- Keep cargo tracking household-scoped with local email parsing and explicit editable review; use locked database RPCs for imports and independent workflow updates, plus immutable trigger-written audit history, to prevent duplicate imports, stale overwrites and workflow resets.
