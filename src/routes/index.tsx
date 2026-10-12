@@ -63,6 +63,7 @@ type TabKey = (typeof TABS)[number]["key"] | "painel";
 function Index() {
   const { session, profile, user, loading } = useAuth();
   const [tab, setTab] = useState<TabKey>("despensa");
+  const [cargosVisited, setCargosVisited] = useState(false);
   const [houseOpen, setHouseOpen] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const sendNotifications = useServerFn(sendDueAppointmentNotifications);
@@ -156,7 +157,7 @@ function Index() {
         {tab === "compromissos" && <AppointmentsScreen userName={userName} />}
         {tab === "isis" && <IsisScreen userName={userName} />}
         {tab === "historico" && <HistoryScreen />}
-        {tab === "cargas" && <CargoScreen />}
+        {cargosVisited && <div hidden={tab !== "cargas"}><CargoScreen /></div>}
         {tab === "painel" && isOwner && <AdminScreen userName={userName} />}
       </main>
 
@@ -165,7 +166,7 @@ function Index() {
           {TABS.map(({ key, label, icon: Icon }) => (
             <button
               key={key}
-              onClick={() => setTab(key)}
+              onClick={() => { if (key === "cargas") setCargosVisited(true); setTab(key); }}
               className={`flex flex-1 flex-col items-center gap-1 py-3 text-[11px] font-semibold transition-colors ${
                 tab === key ? "text-primary" : "text-muted-foreground"
               }`}
