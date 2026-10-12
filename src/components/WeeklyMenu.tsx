@@ -1,21 +1,21 @@
 import { Suspense, useState } from "react";
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, CookingPot, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, CookingPot, Pencil, Plus, Trash2, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { Product } from "@/lib/types";
-import { formatStock, qty } from "@/lib/format";
+import { formatStock } from "@/lib/format";
 import { addDays, compatibleUnits, localDate, MEAL_TYPES, prioritizeDays, prioritizeMeals, stockAmount, weekStart, type MenuPlan } from "@/lib/weekly-menu";
 
 const routeApi = getRouteApi("/");
 type IngredientDraft = { product_id: string; quantity: string; unit: string };
-type Draft = { id?: string; title: string; date: string; time: string; type: string; notes: string; ingredients: IngredientDraft[] };
+type Draft = { id?: string; title: string; date: string; type: string; notes: string; ingredients: IngredientDraft[] };
 function newDraft(date: string): Draft {
-  return { title: "", date, time: "12:00", type: "lunch", notes: "", ingredients: [] };
+  return { title: "", date, type: "lunch", notes: "", ingredients: [] };
 }
 function dateLabel(date: string) {
   return new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit" });
@@ -39,6 +39,7 @@ function MenuContent({ onBack, products }: { onBack: () => void; products: Produ
   const [draft, setDraft] = useState<Draft | null>(null);
   const [confirmation, setConfirmation] = useState<{ plan: MenuPlan; prepared: boolean } | null>(null);
   const [deletion, setDeletion] = useState<MenuPlan | null>(null);
+  const [undo, setUndo] = useState<MenuPlan | null>(null);
   const [busy, setBusy] = useState(false);
   const { data: plans } = useSuspenseQuery({
     queryKey: ["menu_plans", profile?.household_id, start],
@@ -60,10 +61,10 @@ function MenuContent({ onBack, products }: { onBack: () => void; products: Produ
     finally { setBusy(false); }
   }
   function edit(plan: MenuPlan) {
-    setDraft({ id: plan.id, title: plan.title, date: plan.meal_date, time: plan.meal_time.slice(0, 5), type: plan.meal_type, notes: plan.notes ?? "", ingredients: plan.menu_ingredients.map((i) => ({ product_id: i.product_id ?? "", quantity: String(i.quantity), unit: i.unit })) });
+    setDraft({ id: plan.id, title: plan.title, date: plan.meal_date, type: plan.meal_type, notes: plan.notes ?? "", ingredients: plan.menu_ingredients.map((i) => ({ product_id: i.product_id ?? "", quantity: String(i.quantity), unit: i.unit })) });
   }
   const days = prioritizeDays(Array.from({ length: 7 }, (_, i) => addDays(start, i)), today);
-  const nearest = prioritizeMeals(plans.filter((p) => p.meal_date === today && p.status === "pending" && p.meal_time.slice(0, 5) >= `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`), now)[0]?.id;
+  const nearest = prioritizeMeals(plans.filter((p) => p.meal_date === today && p.status === "pending"), now)[0]?.id;
   return <div className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex items-center gap-2"><Button size="icon" variant="outline" onClick={onBack} aria-label="Voltar à Despensa" title="Voltar à Despensa"><ArrowLeft className="h-4 w-4" /></Button><h2 className="text-xl">Cardápio semanal</h2></div>
@@ -81,10 +82,10 @@ function MenuContent({ onBack, products }: { onBack: () => void; products: Produ
         {!meals.length && <p className="px-1 pb-2 text-xs text-muted-foreground">Nenhuma refeição planejada.</p>}
         {meals.map((plan) => <article key={plan.id} className={`surface space-y-3 p-3 ${plan.id === nearest ? "border-primary" : ""}`}>
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-primary">{plan.meal_time.slice(0, 5)}</span><span className="text-xs text-muted-foreground">{MEAL_TYPES.find((m) => m.value === plan.meal_type)?.label}</span>{plan.id === nearest && <Pill tone="primary">Próxima refeição</Pill>}</div><h4 className={`mt-1 break-words font-semibold ${day === today ? "text-lg" : "text-base"}`}>{plan.title}</h4></div>
+            <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold text-primary">{MEAL_TYPES.find((m) => m.value === plan.meal_type)?.label}</span>{plan.id === nearest && <Pill tone="primary">Próxima refeição</Pill>}</div><h4 className={`mt-1 break-words font-semibold ${day === today ? "text-lg" : "text-base"}`}>{plan.title}</h4></div>
             <Pill tone={plan.status === "prepared" ? "success" : "muted"}>{plan.status === "prepared" ? "Feita" : plan.status === "skipped" ? "Não feita" : "Pendente"}</Pill>
           </div>
-          <ul className="space-y-1 text-sm">{plan.menu_ingredients.map((i) => <li key={i.id} className="flex justify-between gap-3"><span className="min-w-0 break-words text-muted-foreground">{i.product_name}</span><span className="shrink-0 font-medium">{qty(Number(i.quantity))} {i.unit}</span></li>)}</ul>
+          <ul className="space-y-1 text-sm">{plan.menu_ingredients.map((i) => <li key={i.id} className="flex justify-between gap-3"><span className="min-w-0 break-words text-muted-foreground">{i.product_name}</span><span className="shrink-0 font-medium">{formatStock(Number(i.quantity), i.unit)}</span></li>)}</ul>
           {plan.notes && <p className="break-words text-xs text-muted-foreground">{plan.notes}</p>}
           <p className="text-xs text-muted-foreground">Por {plan.created_by_name}{plan.confirmed_by_name ? ` · ${plan.status === "prepared" ? "Preparada" : "Confirmada"} por ${plan.confirmed_by_name}` : ""}</p>
           {plan.status === "pending" && <div className="flex flex-wrap items-center gap-2">
@@ -92,12 +93,13 @@ function MenuContent({ onBack, products }: { onBack: () => void; products: Produ
             <Button size="sm" variant="outline" disabled={busy} onClick={() => setConfirmation({ plan, prepared: false })}><X className="h-4 w-4" /> Não foi feita</Button>
             <div className="ml-auto flex gap-1"><Button size="icon" variant="ghost" aria-label={`Editar ${plan.title}`} title="Editar refeição" disabled={busy} onClick={() => edit(plan)}><Pencil className="h-4 w-4" /></Button><Button size="icon" variant="ghost" aria-label={`Excluir ${plan.title}`} title="Excluir refeição" disabled={busy} onClick={() => setDeletion(plan)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div>
           </div>}
+          {plan.status !== "pending" && <Button size="sm" variant="outline" disabled={busy} onClick={() => setUndo(plan)}><Undo2 className="h-4 w-4" /> Desfazer confirmação</Button>}
         </article>)}
       </section>;
     })}
     {draft && <MealEditor draft={draft} products={products} busy={busy} onChange={setDraft} onClose={() => { if (!busy) setDraft(null); }} onSave={() => void mutate(async () => {
       // Generated RPC types omit nullable arguments; SQL requires null for a new plan.
-      const args = { _id: draft.id ?? null, _title: draft.title.trim(), _date: draft.date, _time: draft.time, _type: draft.type, _notes: draft.notes.trim(), _ingredients: draft.ingredients.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity.replace(",", ".")), unit: i.unit })) };
+      const args = { _id: draft.id ?? null, _title: draft.title.trim(), _date: draft.date, _time: MEAL_TYPES.find((m) => m.value === draft.type)?.time ?? "12:00", _type: draft.type, _notes: draft.notes.trim(), _ingredients: draft.ingredients.map((i) => ({ product_id: i.product_id, quantity: Number(i.quantity.replace(",", ".")), unit: i.unit })) };
       const { error } = await supabase.rpc("save_menu_plan", args as unknown as Database["public"]["Functions"]["save_menu_plan"]["Args"]);
       if (error) throw new Error(error.message);
       setDraft(null);
@@ -110,7 +112,17 @@ function MenuContent({ onBack, products }: { onBack: () => void; products: Produ
     }, confirmation?.prepared ? "Preparo confirmado e despensa atualizada" : "Refeição marcada como não feita")}>{busy ? <Spinner /> : <Check className="h-4 w-4" />} Confirmar</Button><Button variant="outline" disabled={busy} onClick={() => setConfirmation(null)}>Cancelar</Button></>}>
       <p className="text-sm">{confirmation?.plan.title}</p>
       <p className="text-sm text-muted-foreground">{confirmation?.prepared ? "Os ingredientes abaixo serão descontados da Despensa." : "Nenhum ingrediente será descontado da Despensa."}</p>
-      {confirmation?.prepared && <ul className="space-y-1 text-sm">{confirmation.plan.menu_ingredients.map((i) => <li key={i.id}>{i.product_name} · {qty(Number(i.quantity))} {i.unit}</li>)}</ul>}
+      {confirmation?.prepared && <ul className="space-y-1 text-sm">{confirmation.plan.menu_ingredients.map((i) => <li key={i.id}>{i.product_name} · {formatStock(Number(i.quantity), i.unit)}</li>)}</ul>}
+    </Modal>
+    <Modal open={!!undo} onClose={() => { if (!busy) setUndo(null); }} title="Desfazer confirmação" footer={<><Button disabled={busy} onClick={() => void mutate(async () => {
+      if (!undo?.confirmed_at) throw new Error("Atualize o cardápio antes de desfazer a confirmação");
+      const { error } = await supabase.rpc("undo_menu_confirmation", { _id: undo.id, _confirmed_at: undo.confirmed_at });
+      if (error) throw new Error(error.message);
+      setUndo(null);
+    }, undo?.status === "prepared" ? "Confirmação desfeita e ingredientes devolvidos" : "Refeição voltou para pendente")}>{busy ? <Spinner /> : <Undo2 className="h-4 w-4" />} Desfazer</Button><Button variant="outline" disabled={busy} onClick={() => setUndo(null)}>Voltar</Button></>}>
+      <p className="text-sm font-semibold">{undo?.title}</p>
+      <p className="text-sm text-muted-foreground">{undo?.status === "prepared" ? "Os ingredientes serão devolvidos à Despensa e a refeição voltará para pendente." : "A refeição voltará para pendente, sem alterar a Despensa."}</p>
+      {undo?.status === "prepared" && <ul className="space-y-1 text-sm">{undo.menu_ingredients.map((i) => <li key={i.id}>{i.product_name} · {formatStock(Number(i.quantity), i.unit)}</li>)}</ul>}
     </Modal>
     <Modal open={!!deletion} onClose={() => { if (!busy) setDeletion(null); }} title="Excluir refeição" footer={<><Button variant="danger" disabled={busy} onClick={() => void mutate(async () => { if (!deletion) return; const { error } = await supabase.rpc("delete_menu_plan", { _id: deletion.id }); if (error) throw new Error(error.message); setDeletion(null); }, "Refeição excluída")}>{busy ? <Spinner /> : <Trash2 className="h-4 w-4" />} Excluir</Button><Button variant="outline" disabled={busy} onClick={() => setDeletion(null)}>Cancelar</Button></>}><p className="text-sm">Excluir “{deletion?.title}” do cardápio?</p></Modal>
   </div>;
@@ -126,10 +138,9 @@ function MealEditor({ draft, products, busy, onChange, onClose, onSave }: { draf
     return !p || !/^\d+(?:[.,]\d{1,3})?$/.test(i.quantity) || !Number.isFinite(converted) || converted > Number(p.quantity) || amount > 100000000;
   });
   function changeIngredient(index: number, patch: Partial<IngredientDraft>) { onChange({ ...draft, ingredients: draft.ingredients.map((i, n) => n === index ? { ...i, ...patch } : i) }); }
-  return <Modal open onClose={onClose} title={draft.id ? "Editar refeição" : "Nova refeição"} footer={<><Button className="flex-1" disabled={busy || !draft.title.trim() || !draft.date || !draft.time || !draft.ingredients.length || invalid} onClick={onSave}>{busy ? <Spinner /> : <CookingPot className="h-4 w-4" />} Salvar</Button><Button variant="outline" disabled={busy} onClick={onClose}>Cancelar</Button></>}>
-    <Field label="Nome da refeição"><input className="field" value={draft.title} maxLength={120} disabled={busy} placeholder="Ex.: Arroz, feijão e frango" onChange={(e) => onChange({ ...draft, title: e.target.value })} /></Field>
-    <div className="grid grid-cols-2 gap-3"><Field label="Dia"><input type="date" className="field min-w-0" value={draft.date} disabled={busy} onChange={(e) => onChange({ ...draft, date: e.target.value })} /></Field><Field label="Horário"><input type="time" className="field min-w-0" value={draft.time} disabled={busy} onChange={(e) => onChange({ ...draft, time: e.target.value })} /></Field></div>
-    <Field label="Refeição"><select className="field" disabled={busy} value={draft.type} onChange={(e) => { const type = MEAL_TYPES.find((m) => m.value === e.target.value); if (type) onChange({ ...draft, type: type.value, time: type.time }); }}>{MEAL_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></Field>
+  return <Modal open onClose={onClose} title={draft.id ? "Editar refeição" : "Nova refeição"} footer={<><Button className="flex-1" disabled={busy || !draft.title.trim() || !draft.date || !draft.ingredients.length || invalid} onClick={onSave}>{busy ? <Spinner /> : <CookingPot className="h-4 w-4" />} Salvar</Button><Button variant="outline" disabled={busy} onClick={onClose}>Cancelar</Button></>}>
+    <Field label="Nome da refeição"><input className="field" value={draft.title} maxLength={120} disabled={busy} onChange={(e) => onChange({ ...draft, title: e.target.value })} /></Field>
+    <div className="grid grid-cols-2 gap-3"><Field label="Dia"><input type="date" className="field min-w-0" value={draft.date} disabled={busy} onChange={(e) => onChange({ ...draft, date: e.target.value })} /></Field><Field label="Refeição"><select className="field" disabled={busy} value={draft.type} onChange={(e) => onChange({ ...draft, type: e.target.value })}>{MEAL_TYPES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}</select></Field></div>
     <div className="space-y-3"><h3 className="text-sm">Ingredientes</h3>
       {draft.ingredients.map((i, index) => {
         const p = products.find((p) => p.id === i.product_id);
@@ -142,7 +153,7 @@ function MealEditor({ draft, products, busy, onChange, onClose, onSave }: { draf
         </div>;
       })}
       <Field label="Adicionar da Despensa"><input className="field" placeholder="Buscar ingrediente..." value={search} onChange={(e) => setSearch(e.target.value)} disabled={busy} /></Field>
-      <div className="max-h-40 space-y-1 overflow-y-auto">{available.map((p) => <Button key={p.id} variant="ghost" className="h-auto w-full justify-between py-2 text-left whitespace-normal" disabled={busy || draft.ingredients.length >= 100} onClick={() => { onChange({ ...draft, ingredients: [...draft.ingredients, { product_id: p.id, quantity: "", unit: p.stock_unit ?? "un" }] }); setSearch(""); }}><span className="min-w-0 break-words">{p.name}<span className="block text-xs font-normal text-muted-foreground">{formatStock(Number(p.quantity), p.stock_unit)}</span></span><Plus className="h-4 w-4 shrink-0" /></Button>)}{!available.length && <p className="py-2 text-xs text-muted-foreground">Nenhum ingrediente disponível.</p>}</div>
+      {search.trim() && <div className="max-h-40 space-y-1 overflow-y-auto">{available.map((p) => <Button key={p.id} variant="ghost" className="h-auto w-full justify-between py-2 text-left whitespace-normal" disabled={busy || draft.ingredients.length >= 100} onClick={() => { onChange({ ...draft, ingredients: [...draft.ingredients, { product_id: p.id, quantity: "", unit: p.stock_unit ?? "un" }] }); setSearch(""); }}><span className="min-w-0 break-words">{p.name}<span className="block text-xs font-normal text-muted-foreground">{formatStock(Number(p.quantity), p.stock_unit)}</span></span><Plus className="h-4 w-4 shrink-0" /></Button>)}{!available.length && <p className="py-2 text-xs text-muted-foreground">Nenhum ingrediente disponível.</p>}</div>}
     </div>
     <Field label="Observação"><textarea className="field min-h-16" disabled={busy} maxLength={2000} value={draft.notes} onChange={(e) => onChange({ ...draft, notes: e.target.value })} /></Field>
   </Modal>;
