@@ -164,6 +164,19 @@ export function cargoDifferences(draft: CargoDraft, existing: CargoLoad): string
   }
   return differences;
 }
+export function quickCargoImport(text: string, existing: CargoLoad[]) {
+  const result = parseCargoEmail(text);
+  const ready: CargoDraft[] = [];
+  const review: CargoDraft[] = [];
+  let unchanged = 0;
+  for (const draft of result.loads) {
+    const saved = existing.find((load) => cargoIdentity(load) === cargoIdentity(draft));
+    if (saved && !cargoDifferences(draft, saved).length && !draft.warnings.length && !validateDraft(draft).length && !result.unparsed.length) { unchanged++; continue; }
+    if (saved || draft.warnings.length || validateDraft(draft).length || result.unparsed.length) review.push(draft);
+    else ready.push(draft);
+  }
+  return { ready, review, unchanged, unparsed: result.unparsed };
+}
 export type CargoFilters = { search: string; date: string; destination: string; center: string; carrier: string; plate: string; dt: string; status: string; pending: boolean };
 export const emptyFilters: CargoFilters = { search: '', date: '', destination: '', center: '', carrier: '', plate: '', dt: '', status: '', pending: false };
 export function filterCargos(loads: CargoLoad[], filters: CargoFilters) {

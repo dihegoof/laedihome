@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { billingCompletionPatch, cargoIdentity, cargoPeriod, cargoCsv, cargoDifferences, cargoSummary, emptyFilters, filterCargos, parseCargoEmail, parseDate, validateDraft, type CargoLoad } from './cargo';
+import { billingCompletionPatch, cargoIdentity, cargoPeriod, cargoCsv, cargoDifferences, cargoSummary, emptyFilters, filterCargos, parseCargoEmail, parseDate, quickCargoImport, validateDraft, type CargoLoad } from './cargo';
 
 const header='Data\tCarga\tOrigem\tCentro\tDestino\tTransportadora\tPlaca\tDT\tPallets\tCódigo\tDescrição\tCaixas';
 const row=(cargo='100',code='200',boxes='30',pallets='12') => `12/10/2026\t${cargo}\t1000\t2000\tSão Paulo\tTransportes\tABC1D23\t400\t${pallets}\t${code}\tCoca Cola 2L\t${boxes}`;
@@ -29,6 +29,10 @@ describe('Cargo import and workflow rules',() => {
     const line=photo.split('\n')[0];const loads=parseCargoEmail(line+'\n'+line.replace('106832730','106832999')).loads;
     assert.equal(loads.length,2);assert.notEqual(cargoIdentity(loads[0]),cargoIdentity(loads[1]));
   });
+  test('pasting the four complete cargos saves all four without mandatory review',()=>{const result=quickCargoImport(photo,[]);assert.equal(result.ready.length,4);assert.equal(result.review.length,0);});
+  test('changed reimports still require explicit review',()=>{const result=quickCargoImport(header+'\n'+row('100','200','31'),[saved()]);assert.equal(result.ready.length,0);assert.equal(result.review.length,1);});
+  test('identical reimports skip writes and preserve the saved workflow',()=>{const result=quickCargoImport(header+'\n'+row(),[saved()]);assert.equal(result.ready.length,0);assert.equal(result.review.length,0);assert.equal(result.unchanged,1);});
+  test('unrecognized lines prevent silently saving an incomplete email',()=>{const result=quickCargoImport(photo+'\nlinha incompleta',[]);assert.equal(result.ready.length,0);assert.equal(result.review.length,4);assert.equal(result.unparsed.length,1);});
   test('repeated fixed rows never double pallets',()=>{const line=photo.split('\n')[0];assert.equal(parseCargoEmail(line+'\n'+line).loads[0].pallets,'26');});
   test('billing completion issues the invoice without changing CTe, printing or departure',()=>{assert.deepEqual(billingCompletionPatch(),{billing_status:'issued',billing_issue:'none'});});
   test('loads move to history tomorrow in Sao Paulo',()=>{const l={registered_at:'2026-10-12T17:00:00Z'};assert.equal(cargoPeriod(l,new Date('2026-10-13T02:59:00Z')),'today');assert.equal(cargoPeriod(l,new Date('2026-10-13T03:00:00Z')),'history');});

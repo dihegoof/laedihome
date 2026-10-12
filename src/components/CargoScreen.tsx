@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Button, EmptyState, Field, Pill, Spinner } from '@/components/kit';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { billingCompletionPatch, cargoDay, cargoIdentity, cargoIssueOptions, cargoPeriod, cargoCsv, cargoDifferences, cargoFields, cargoSummary, emptyFilters, filterCargos, numberValue, parseCargoEmail, stageLabel, stages, validateDraft, type CargoDraft, type CargoHistory, type CargoLoad, type Stage } from '@/lib/cargo';
+import { billingCompletionPatch, cargoDay, cargoIdentity, cargoIssueOptions, cargoPeriod, cargoCsv, cargoDifferences, cargoFields, cargoSummary, emptyFilters, filterCargos, numberValue, quickCargoImport, stageLabel, stages, validateDraft, type CargoDraft, type CargoHistory, type CargoLoad, type Stage } from '@/lib/cargo';
 import type { Json } from '@/integrations/supabase/types';
 
 const dateLabel = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString('pt-BR');
@@ -23,6 +23,7 @@ function CargoContent() {
   const [unparsed,setUnparsed] = useState<string[]>([]);
   const [ack,setAck] = useState(false);
   const [busy,setBusy] = useState(false);
+  const [pasteOpen,setPasteOpen] = useState(false);
   const [filters,setFilters] = useState(emptyFilters);
   const [expandedFilters,setExpandedFilters] = useState(false);
   const [sort,setSort] = useState('scheduled_date');
@@ -32,6 +33,7 @@ function CargoContent() {
   const [selected,setSelected] = useState<string | null>(null);
   const { data: loads } = useSuspenseQuery({
     queryKey: ['cargo_loads',household],
+    staleTime: 30_000,
     queryFn: async () => {
       if (!household) return [];
       const { data,error } = await supabase.from('cargo_loads').select('*,cargo_products(*)').eq('household_id',household).order('scheduled_date',{ascending:false});
@@ -59,16 +61,34 @@ function CargoContent() {
   const selectedDrafts = drafts.filter((d) => d.selected);
   const duplicateKeys = selectedDrafts.some((d,i) => selectedDrafts.some((other,j) => i!==j && cargoIdentity(d) === cargoIdentity(other)));
   const canImport = !!household && selectedDrafts.length > 0 && !duplicateKeys && selectedDrafts.every((d) => !validateDraft(d).length && d.reviewed) && (!unparsed.length || ack);
+  async function saveDrafts(items: CargoDraft[]) {
+    const payload = items.map((d) => {
+      const existing = matching(d);
+      return { ...Object.fromEntries(cargoFields.map(([key]) => [key,key === 'pallets' ? d.pallets ? numberValue(d.pallets) : null : d[key].trim()])), products:d.products.map((p) => ({...p,boxes:numberValue(p.boxes)})),confirm_update:!!existing,expected_updated_at:existing?.updated_at ?? null };
+    });
+    const { error } = await supabase.rpc('import_cargo_loads',{_loads:payload as Json});
+    if (error) throw error;
+  }
+  async function pasteLoads(value: string) {
+    if (busy || !household || !value.trim()) return;
+    setText(value); setAck(false);
+    const result = quickCargoImport(value,loads);
+    setDrafts(result.review); setUnparsed(result.unparsed);
+    if (!result.ready.length && !result.review.length && !result.unchanged) { toast.error('Não identifiquei as cargas. Confira se as linhas completas foram copiadas.'); return; }
+    if (result.ready.length) await run(async () => {
+      try { await saveDrafts(result.ready); }
+      catch (error) { setDrafts([...result.ready,...result.review]); throw error; }
+      setPeriod('today'); setFilters(emptyFilters);
+      if (!result.review.length && !result.unparsed.length) { setText(''); setPasteOpen(false); }
+      toast.success(`${result.ready.length} cargas adicionadas.`);
+    });
+    else if (result.unchanged && !result.review.length) { setText(''); setPasteOpen(false); toast.success('Essas cargas já estão na lista.'); }
+  }
   async function importLoads() {
     if (!canImport) return;
     await run(async () => {
-      const payload = selectedDrafts.map((d) => {
-        const existing = matching(d);
-        return { ...Object.fromEntries(cargoFields.map(([key]) => [key,key === 'pallets' ? d.pallets ? numberValue(d.pallets) : null : d[key].trim()])), products:d.products.map((p) => ({...p,boxes:numberValue(p.boxes)})),confirm_update:!!existing,expected_updated_at:existing?.updated_at ?? null };
-      });
-      const { error } = await supabase.rpc('import_cargo_loads',{_loads:payload as Json});
-      if (error) throw error;
-      setDrafts([]); setUnparsed([]); setText(''); toast.success('Cargas importadas.');
+      await saveDrafts(selectedDrafts);
+      setDrafts([]); setUnparsed([]); setText(''); setPasteOpen(false); toast.success('Cargas importadas.');
     });
   }
   const visible = filterCargos(loads.filter(l=>cargoPeriod(l,new Date(today+'T12:00:00Z'))===period),filters).sort((a,b) => {
@@ -80,28 +100,32 @@ function CargoContent() {
     const anchor = document.createElement('a'); anchor.href=url; anchor.download=`cargas-${detailed?'detalhadas':'resumo'}.csv`; anchor.click(); URL.revokeObjectURL(url);
   }
   const selectedLoad = loads.find((l) => l.id === selected);
-  if (selectedLoad) return <CargoDetails key={selectedLoad.id} load={selectedLoad} busy={busy} onBack={() => setSelected(null)} onSave={(patch,note) => run(async () => {
+  function openLoad(id: string | null) { setSelected(id); window.scrollTo({top:0}); }
+  if (selectedLoad) return <><div className="sticky top-16 z-20 border-b border-border bg-background py-2"><select className="field" aria-label="Trocar carga" value={selectedLoad.id} onChange={e=>openLoad(e.target.value)}>{(visible.some(l=>l.id===selectedLoad.id)?visible:[selectedLoad,...visible]).map(l=><option key={l.id} value={l.id}>Carga {l.load_number} · {l.destination_name} · DT {l.driver_dt}</option>)}</select></div><CargoDetails key={selectedLoad.id} load={selectedLoad} busy={busy} onBack={() => openLoad(null)} onSave={(patch,note) => run(async () => {
     const {error} = await supabase.rpc('update_cargo_load',{_id:selectedLoad.id,_patch:patch as Json,_expected_updated_at:selectedLoad.updated_at,_note:note});
     if (error) throw error;
     toast.success('Carga atualizada.');
-  })} />;
+  })} /></>;
   return <div className="space-y-5">
     <div className="flex items-center gap-2"><Truck className="h-6 w-6 text-primary" /><h2 className="text-xl">Controle de Cargas</h2></div>
     <div className="flex gap-2"><Button size="sm" variant={period==='today'?'primary':'outline'} onClick={()=>{setPeriod('today');setFilters(emptyFilters);}}>Cargas de hoje</Button><Button size="sm" variant={period==='history'?'primary':'outline'} onClick={()=>{setPeriod('history');setFilters(emptyFilters);}}>Histórico · 30 dias</Button></div>
     {period==='today' && <section className="space-y-3">
-      <Field label="Cole aqui os dados da planilha ou e-mail"><textarea className="field min-h-40 resize-y" value={text} onChange={(e) => {setText(e.target.value);setDrafts([]);setUnparsed([]);setAck(false);}} /></Field>
+      {!!loads.length && !pasteOpen && !drafts.length && !text && <Button size="sm" variant="outline" onClick={()=>setPasteOpen(true)}><Plus className="h-4 w-4" />Colar novas cargas</Button>}
+      {(!loads.length || pasteOpen || !!drafts.length || !!text) && <>
+      <Field label="Cole aqui os dados da planilha ou e-mail"><textarea className="field min-h-20 resize-y" disabled={busy} value={text} onPaste={e=>{e.preventDefault();const target=e.currentTarget;const value=target.value.slice(0,target.selectionStart)+e.clipboardData.getData('text')+target.value.slice(target.selectionEnd);void pasteLoads(value);}} onChange={(e) => {setText(e.target.value);setDrafts([]);setUnparsed([]);setAck(false);}} /></Field>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={!text.trim() || busy} onClick={() => {const result=parseCargoEmail(text);setDrafts(result.loads);setUnparsed(result.unparsed);setAck(false);if(!result.loads.length) toast.error('Não identifiquei as cargas. Confira se as linhas completas foram copiadas.');}}><Search className="h-4 w-4" />Interpretar e visualizar cargas</Button>
-        <Button size="sm" variant="outline" disabled={!canImport || busy} onClick={() => void importLoads()}><Check className="h-4 w-4" />Importar cargas</Button>
+        {busy ? <span className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />Salvando cargas...</span> : !drafts.length && !!text.trim() && <Button size="sm" onClick={()=>void pasteLoads(text)}><Plus className="h-4 w-4" />Adicionar cargas</Button>}
+        {!!drafts.length && <Button size="sm" variant="outline" disabled={!canImport || busy} onClick={() => void importLoads()}><Check className="h-4 w-4" />Salvar cargas revisadas</Button>}
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => {setText('');setDrafts([]);setUnparsed([]);setAck(false);}}><X className="h-4 w-4" />Limpar texto</Button>
       </div>
       {!!unparsed.length && <details className="border-l-2 border-warning pl-3 text-sm"><summary className="cursor-pointer text-warning-foreground">{unparsed.length} linhas não interpretadas</summary><pre className="my-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs">{unparsed.join('\n')}</pre>{!!drafts.length && <label className="flex items-start gap-2"><input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />Conferi as linhas não interpretadas e confirmo que não faltam produtos na prévia.</label>}</details>}
       {duplicateKeys && <p className="text-sm text-destructive">Existem duas cargas selecionadas com o mesmo DT ou identificação. Corrija a prévia.</p>}
       {drafts.map((draft,i) => <CargoPreview key={i} draft={draft} existing={matching(draft)} onChange={(next) => setDrafts((old) => old.map((d,index) => index === i ? {...next,reviewed:false} : d))} onReview={(reviewed) => setDrafts((old) => old.map((d,index) => index === i ? {...d,reviewed} : d))} />)}
+      </>}
     </section>}
     <section className="space-y-3 border-t border-border pt-5">
       <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg">{period==='today'?'Cargas de hoje':'Histórico temporário'}</h3><div className="flex gap-2"><Button size="icon" variant="outline" title="Exportar resumo CSV" aria-label="Exportar resumo CSV" disabled={!visible.length} onClick={() => exportCsv(false)}><Download className="h-4 w-4" /></Button><Button size="icon" variant="outline" title="Exportar produtos CSV" aria-label="Exportar produtos CSV" disabled={!visible.length} onClick={() => exportCsv(true)}><FileText className="h-4 w-4" /></Button></div></div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{cargoSummary(visible).map(([label,count]) => <div key={label} className="border-l-2 border-primary pl-3 py-1"><p className="text-2xl font-semibold tabular-nums">{count}</p><p className="text-xs text-muted-foreground">{label}</p></div>)}</div>
+      <details><summary className="cursor-pointer text-sm text-muted-foreground">Resumo · {visible.length} cargas</summary><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{cargoSummary(visible).map(([label,count]) => <div key={label} className="border-l-2 border-primary pl-3 py-1"><p className="text-2xl font-semibold tabular-nums">{count}</p><p className="text-xs text-muted-foreground">{label}</p></div>)}</div></details>
       <div className="grid grid-cols-[1fr_auto] gap-2"><input className="field min-w-0" aria-label="Busca por número da carga" placeholder="Número da carga" value={filters.search} onChange={(e) => setFilters({...filters,search:e.target.value})} /><Button size="icon" variant="outline" title="Filtros" aria-label="Filtros" onClick={() => setExpandedFilters(!expandedFilters)}><Filter className="h-4 w-4" /></Button></div>
       {expandedFilters && <div className="grid grid-cols-2 gap-3">
         <Field label="Data prevista"><input className="field" type="date" value={filters.date} onChange={(e) => setFilters({...filters,date:e.target.value})} /></Field>
@@ -111,15 +135,14 @@ function CargoContent() {
       </div>}
       <div className="flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={filters.pending} onChange={(e) => setFilters({...filters,pending:e.target.checked})} />Somente pendentes</label><select className="field max-w-44" aria-label="Ordenar cargas" value={sort} onChange={(e) => setSort(e.target.value)}><option value="scheduled_date">Data prevista</option><option value="load_number">Número da carga</option><option value="destination_name">Destino</option><option value="status">Status</option></select></div>
       {!visible.length && <EmptyState>{loads.length ? 'Nenhuma carga corresponde aos filtros.' : 'Nenhuma carga cadastrada.'}</EmptyState>}
-      {visible.map((load) => <article key={load.id} className="surface space-y-3 p-3">
-        <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h4 className="break-words font-semibold text-lg">Carga {load.load_number}</h4><p className="text-sm text-muted-foreground">{dateLabel(load.scheduled_date)} · {load.destination_name ?? 'Destino não informado'}</p></div><Button variant="ghost" size="icon" title="Detalhes da carga" aria-label={`Abrir carga ${load.load_number}`} onClick={() => setSelected(load.id)}><ChevronDown className="h-4 w-4" /></Button></div>
+      {visible.map((load) => <Button key={load.id} variant="outline" aria-label={`Abrir carga ${load.load_number}`} onClick={()=>openLoad(load.id)} className="h-auto w-full flex-col items-stretch gap-2 whitespace-normal p-3 text-left font-normal">
+        <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h4 className="break-words font-semibold text-lg">Carga {load.load_number}</h4><p className="text-sm text-muted-foreground">{dateLabel(load.scheduled_date)} · {load.destination_name ?? 'Destino não informado'}</p></div><ChevronDown className="h-4 w-4 shrink-0" /></div>
         <p className="text-xs text-muted-foreground">DT {load.driver_dt??'—'} · {load.carrier ?? 'Transportadora não informada'} · {load.plate ?? 'Sem placa'} · {load.pallets ?? '—'} pallets · {load.cargo_products.length} produtos</p>
         <div className="flex flex-wrap gap-1.5">{(Object.keys(stages) as Stage[]).map((key) => <Pill key={key} tone={['issued','automatic','manual','finished'].includes(load[key])?'success':'muted'}>{stageLabel(key,load[key])}</Pill>)}</div>
         {load.billing_issue!=='none' && <Pill tone="accent">{cargoIssueOptions.find(([v])=>v===load.billing_issue)?.[1]}</Pill>}
         {load.operational_status==='finished' && <p className="text-sm font-semibold">{load.departure_confirmed?'Finalizada com saída':'Finalizada sem saída'}</p>}
         {!!load.notes && <p className="whitespace-pre-wrap break-words text-sm">{load.notes}</p>}
-        <Button size="sm" variant="outline" onClick={() => setSelected(load.id)}><FileText className="h-4 w-4" />{load.billing_status==='issued'?'Abrir espelho':'Selecionar para faturar'}</Button>
-      </article>)}
+      </Button>)}
     </section>
   </div>;
 }
