@@ -50,6 +50,13 @@
       "when": 1791822441411,
       "tag": "0006_cargo_control",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791824833203,
+      "tag": "0007_cargo_dt_billing_and_retention",
+      "breakpoints": true
     }
   ]
 }
