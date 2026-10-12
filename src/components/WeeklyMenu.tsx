@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import type { Product } from "@/lib/types";
-import { qty } from "@/lib/format";
+import { formatStock, qty } from "@/lib/format";
 import { addDays, compatibleUnits, localDate, MEAL_TYPES, prioritizeDays, prioritizeMeals, stockAmount, weekStart, type MenuPlan } from "@/lib/weekly-menu";
 
 const routeApi = getRouteApi("/");
@@ -138,7 +138,7 @@ function MealEditor({ draft, products, busy, onChange, onClose, onSave }: { draf
         return <div key={`${i.product_id}-${index}`} className="space-y-1 border-b border-border pb-3">
           <div className="flex items-center justify-between gap-2"><p className="min-w-0 break-words text-sm font-semibold">{p?.name ?? "Ingrediente excluído"}</p><Button size="icon" variant="ghost" aria-label={`Remover ${p?.name ?? "ingrediente"}`} title="Remover ingrediente" disabled={busy} onClick={() => onChange({ ...draft, ingredients: draft.ingredients.filter((_, n) => n !== index) })}><X className="h-4 w-4" /></Button></div>
           <div className="grid grid-cols-2 gap-2"><Field label="Quantidade"><input className="field" inputMode="decimal" disabled={busy} value={i.quantity} onChange={(e) => changeIngredient(index, { quantity: e.target.value })} /></Field><Field label="Medida"><select className="field" disabled={busy} value={i.unit} onChange={(e) => changeIngredient(index, { unit: e.target.value })}>{!units.includes(i.unit) && <option value={i.unit}>{i.unit} (medida anterior)</option>}{units.map((u) => <option key={u} value={u}>{u}</option>)}</select></Field></div>
-          <p className={`text-xs ${!p || !Number.isFinite(amount) || amount > Number(p.quantity) ? "text-destructive" : "text-muted-foreground"}`}>{p ? `Disponível: ${qty(Number(p.quantity))} ${p.stock_unit ?? "un"}${Number.isFinite(amount) && amount > Number(p.quantity) ? " · Estoque insuficiente" : !Number.isFinite(amount) ? " · Confira a quantidade e medida" : ""}` : "Remova este ingrediente e selecione outro da Despensa."}</p>
+          <p className={`text-xs ${!p || !Number.isFinite(amount) || amount > Number(p.quantity) ? "text-destructive" : "text-muted-foreground"}`}>{p ? `Disponível: ${formatStock(Number(p.quantity), p.stock_unit)}${Number.isFinite(amount) && amount > Number(p.quantity) ? " · Estoque insuficiente" : !Number.isFinite(amount) ? " · Confira a quantidade e medida" : ""}` : "Remova este ingrediente e selecione outro da Despensa."}</p>
         </div>;
       })}
       <Field label="Adicionar da Despensa"><input className="field" placeholder="Buscar ingrediente..." value={search} onChange={(e) => setSearch(e.target.value)} disabled={busy} /></Field>
