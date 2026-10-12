@@ -174,10 +174,12 @@ export type Database = {
       }
       cargo_loads: {
         Row: {
+          billing_issue: string
           billing_status: string
           carrier: string | null
           created_by: string | null
           cte_status: string
+          departure_confirmed: boolean
           destination_center: string | null
           destination_name: string | null
           driver_dt: string | null
@@ -191,14 +193,17 @@ export type Database = {
           pallets: number | null
           plate: string | null
           print_status: string
+          registered_at: string
           scheduled_date: string
           updated_at: string
         }
         Insert: {
+          billing_issue?: string
           billing_status?: string
           carrier?: string | null
           created_by?: string | null
           cte_status?: string
+          departure_confirmed?: boolean
           destination_center?: string | null
           destination_name?: string | null
           driver_dt?: string | null
@@ -212,14 +217,17 @@ export type Database = {
           pallets?: number | null
           plate?: string | null
           print_status?: string
+          registered_at?: string
           scheduled_date: string
           updated_at?: string
         }
         Update: {
+          billing_issue?: string
           billing_status?: string
           carrier?: string | null
           created_by?: string | null
           cte_status?: string
+          departure_confirmed?: boolean
           destination_center?: string | null
           destination_name?: string | null
           driver_dt?: string | null
@@ -233,6 +241,7 @@ export type Database = {
           pallets?: number | null
           plate?: string | null
           print_status?: string
+          registered_at?: string
           scheduled_date?: string
           updated_at?: string
         }

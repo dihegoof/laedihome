@@ -1,14 +1,39 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cargoCsv, cargoDifferences, cargoSummary, emptyFilters, filterCargos, parseCargoEmail, parseDate, validateDraft, type CargoLoad } from './cargo';
+import { billingCompletionPatch, cargoIdentity, cargoPeriod, cargoCsv, cargoDifferences, cargoSummary, emptyFilters, filterCargos, parseCargoEmail, parseDate, validateDraft, type CargoLoad } from './cargo';
 
 const header='Data\tCarga\tOrigem\tCentro\tDestino\tTransportadora\tPlaca\tDT\tPallets\tCódigo\tDescrição\tCaixas';
 const row=(cargo='100',code='200',boxes='30',pallets='12') => `12/10/2026\t${cargo}\t1000\t2000\tSão Paulo\tTransportes\tABC1D23\t400\t${pallets}\t${code}\tCoca Cola 2L\t${boxes}`;
 function saved():CargoLoad {
   const d=parseCargoEmail(header+'\n'+row()).loads[0];
-  return {...d,id:'one',household_id:'home',pallets:12,billing_status:'issued',cte_status:'waiting',print_status:'pending',operational_status:'pending',imported_at:'2026-10-12T12:00:00Z',updated_at:'2026-10-12T12:00:00Z',created_by:null,cargo_products:d.products.map((p) => ({...p,id:p.product_code,load_id:'one',boxes:Number(p.boxes)}))};
+  return {...d,id:'one',household_id:'home',pallets:12,billing_status:'issued',cte_status:'waiting',print_status:'pending',operational_status:'pending',imported_at:'2026-10-12T12:00:00Z',updated_at:'2026-10-12T12:00:00Z',created_by:null,registered_at:'2026-10-12T12:00:00Z',billing_issue:'none',departure_confirmed:false,cargo_products:d.products.map((p) => ({...p,id:p.product_code,load_id:'one',boxes:Number(p.boxes)}))};
 }
 describe('Cargo import and workflow rules',() => {
+  const photo = `12/10/2026	17	B0AC	BFCM	CD Bauru	92581	CRYSTAL 05L C/2 CP	2.912	26	Ritmo	FTP3F84	106832730
+12/10/2026	5	B0AC	BFBP	Francisco Beltrão	92521	CRYSTAL 1,5L SEM GÁS 06UN	896	8	Ritmo	GCV2E09	106831798
+12/10/2026	5	B0AC	BFBP	Francisco Beltrão	92522	CRYSTAL 500ML COM GÁS 12UN	1.344	8	Ritmo	GCV2E09	106831798
+12/10/2026	5	B0AC	BFBP	Francisco Beltrão	92527	CRYSTAL 500ML SEM GÁS 12UN	336	2	Ritmo	GCV2E09	106831798
+12/10/2026	5	B0AC	BFBP	Francisco Beltrão	92581	CRYSTAL 05L C/2 CP	896	8	Ritmo	GCV2E09	106831798
+12/10/2026	15	B0AC	BFCM	CD Bauru	92522	CRYSTAL 500ML COM GÁS 12UN	4.368	26	Ritmo	CQH7691	106832728
+12/10/2026	1	B0AC	BAAF	Campo Grande	92521	CRYSTAL 1,5L SEM GÁS 06UN	2.912	26	Ghelere	GHE0D11	106831794`;
+  test('the exact 12-column photo creates four loads and four products for DT 106831798',()=>{
+    for(const text of [photo,photo.replaceAll('\t',' ')]) {
+      const result=parseCargoEmail(text);assert.deepEqual(result.unparsed,[]);
+      assert.deepEqual(result.loads.map(l=>l.driver_dt),['106832730','106831798','106832728','106831794']);
+      assert.deepEqual(result.loads.map(l=>l.products.length),[1,4,1,1]);
+      assert.equal(result.loads[1].pallets,'26');assert.equal(result.loads[0].products[0].boxes,'2912');
+      assert.deepEqual(result.loads.map(validateDraft),[[],[],[],[]]);
+    }
+  });
+  test('DT separates loads with identical date and cargo number',()=>{
+    const line=photo.split('\n')[0];const loads=parseCargoEmail(line+'\n'+line.replace('106832730','106832999')).loads;
+    assert.equal(loads.length,2);assert.notEqual(cargoIdentity(loads[0]),cargoIdentity(loads[1]));
+  });
+  test('repeated fixed rows never double pallets',()=>{const line=photo.split('\n')[0];assert.equal(parseCargoEmail(line+'\n'+line).loads[0].pallets,'26');});
+  test('billing completion issues the invoice without changing CTe, printing or departure',()=>{assert.deepEqual(billingCompletionPatch(),{billing_status:'issued',billing_issue:'none'});});
+  test('loads move to history tomorrow in Sao Paulo',()=>{const l={registered_at:'2026-10-12T17:00:00Z'};assert.equal(cargoPeriod(l,new Date('2026-10-13T02:59:00Z')),'today');assert.equal(cargoPeriod(l,new Date('2026-10-13T03:00:00Z')),'history');});
+  test('retention expires 30 days after original registration day',()=>{const l={registered_at:'2026-10-12T17:00:00Z'};assert.equal(cargoPeriod(l,new Date('2026-11-10T12:00:00Z')),'history');assert.equal(cargoPeriod(l,new Date('2026-11-11T12:00:00Z')),'expired');});
+
   test('recognizes the supplied headerless spreadsheet with wrapped pallets and carrier lines',() => {
     const text = `12/10/2026  5  B0AC  BFBP  Francisco Beltrão  92521  CRYSTAL 1,5L SEM GÁS 06UN  896
 8  Ritmo  GCV2E09  106831798
@@ -30,7 +55,7 @@ Ghelere  GHE0D11  106831794`;
     assert.equal(loads[0].carrier,'Ritmo');
     assert.equal(loads[0].plate,'GCV2E09');
     assert.equal(loads[0].driver_dt,'106831798');
-    assert.ok(loads[0].warnings.some((w) => w.includes('Pallets conflitante')));
+    assert.equal(loads[0].pallets,'26');
     assert.equal(loads[1].products[0].boxes,'4368');
     assert.equal(loads[1].pallets,'26');
     assert.equal(loads[2].products[0].boxes,'2912');
@@ -51,7 +76,7 @@ Ghelere  GHE0D11  106831794`;
   });
   test('imports a single product without inventing values',() => {const result=parseCargoEmail(header+'\n'+row());assert.equal(result.loads.length,1);assert.equal(result.loads[0].products[0].boxes,'30');assert.deepEqual(validateDraft(result.loads[0]),[]);});
   test('groups products and does not sum repeated pallet totals',() => {const result=parseCargoEmail(header+'\n'+row()+'\n'+row('100','201','40'));assert.equal(result.loads.length,1);assert.equal(result.loads[0].products.length,2);assert.equal(result.loads[0].pallets,'12');});
-  test('keeps different cargo numbers separate',() => {assert.equal(parseCargoEmail(header+'\n'+row()+'\n'+row('101')).loads.length,2);});
+  test('same DT groups rows even when cargo numbers conflict and keeps a warning',() => {const result=parseCargoEmail(header+'\n'+row()+'\n'+row('101'));assert.equal(result.loads.length,1);assert.ok(result.loads[0].warnings.some(w=>w.includes('Número da carga conflitante')));});
   test('deduplicates identical product rows',() => {assert.equal(parseCargoEmail(header+'\n'+row()+'\n'+row()).loads[0].products.length,1);});
   test('flags conflicting pallet totals without adding them',() => {const d=parseCargoEmail(header+'\n'+row()+'\n'+row('100','201','40','14')).loads[0];assert.ok(d.warnings.some((w) => w.includes('conflitante')));assert.equal(d.pallets,'12');});
   test('rejects missing quantities and impossible dates',() => {const d=parseCargoEmail(header+'\n'+row('100','200','')).loads[0];assert.ok(validateDraft(d).length>0);assert.equal(parseDate('31/02/2026'),'');});

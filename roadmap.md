@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Corrigir leitura das 12 colunas sem títulos, agrupamento por DT e pallets por produto
+- [x] Simplificar espelho e finalização de faturamento, erros, espera e etapas independentes
+- [x] Separar cargas do dia e histórico temporário de 30 dias; registros expirados deixam de estar acessíveis no app, sem exclusão física
+
 - [x] Restaurar o build e o acesso às contas já vinculadas
 - [x] Corrigir as proteções da casa e dos arquivos sem perder dados
 - [x] Integrar offline, sincronização e assistente por voz na tela principal
