@@ -1082,6 +1082,10 @@ export type Database = {
         }
         Returns: string
       }
+      undo_menu_confirmation: {
+        Args: { _confirmed_at: string; _id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
