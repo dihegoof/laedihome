@@ -116,7 +116,7 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
     const cells=tokenize(line);
     const candidate=cells.map(headerKey);
     if (candidate.includes('load_number') && candidate.includes('product_code') && candidate.includes('boxes')) {keys=candidate;previous=undefined;continue;}
-    const fixed=fixedRow(line);
+    const fixed=!keys.length ? fixedRow(line) : null;
     const untitled=!keys.length ? untitledRow(line):null;
     const values=keys.length ? cells.length===keys.length ? cells:spaceRow(line,keys):null;
     const data=fixed ?? untitled ?? (values ? Object.fromEntries(keys.map((k,i)=>[k,values[i]??''])):null);
