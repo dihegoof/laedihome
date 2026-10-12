@@ -85,9 +85,9 @@ function CargoContent() {
   return <div className="space-y-5">
     <div className="flex items-center gap-2"><Truck className="h-6 w-6 text-primary" /><h2 className="text-xl">Controle de Cargas</h2></div>
     <section className="space-y-3">
-      <Field label="Cole aqui o e-mail de carregamento"><textarea className="field min-h-40 resize-y" value={text} onChange={(e) => {setText(e.target.value);setDrafts([]);setUnparsed([]);setAck(false);}} /></Field>
+      <Field label="Cole aqui os dados da planilha ou e-mail"><textarea className="field min-h-40 resize-y" value={text} onChange={(e) => {setText(e.target.value);setDrafts([]);setUnparsed([]);setAck(false);}} /></Field>
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" disabled={!text.trim() || busy} onClick={() => {const result=parseCargoEmail(text);setDrafts(result.loads);setUnparsed(result.unparsed);setAck(false);if(!result.loads.length) toast.error('Não identifiquei a tabela. Confira se os cabeçalhos e linhas foram copiados.');}}><Search className="h-4 w-4" />Interpretar e visualizar cargas</Button>
+        <Button size="sm" disabled={!text.trim() || busy} onClick={() => {const result=parseCargoEmail(text);setDrafts(result.loads);setUnparsed(result.unparsed);setAck(false);if(!result.loads.length) toast.error('Não identifiquei as cargas. Confira se as linhas completas foram copiadas.');}}><Search className="h-4 w-4" />Interpretar e visualizar cargas</Button>
         <Button size="sm" variant="outline" disabled={!canImport || busy} onClick={() => void importLoads()}><Check className="h-4 w-4" />Importar cargas</Button>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => {setText('');setDrafts([]);setUnparsed([]);setAck(false);}}><X className="h-4 w-4" />Limpar texto</Button>
       </div>

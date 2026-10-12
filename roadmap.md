@@ -26,4 +26,5 @@
 - [x] Integrar Controle de Cargas: interpretação local revisável, importação sem duplicações e dados compartilhados
 - [x] Adicionar acompanhamento separado, histórico, filtros e exportação de cargas
 - [x] Verificar regras e prévia autenticada de Controle de Cargas sem inserir dados fictícios na produção
-- [ ] Conferir importação e acompanhamento com e-mail real de carregamento fornecido pelo usuário; nenhum exemplo real foi enviado
+- [ ] Conferir acompanhamento e importação final com texto real pelo usuário, sem inserir registros de teste
+- [x] Reconhecer planilha sem títulos e transportadora na linha seguinte conforme foto enviada; 14 testes passaram sem gravar registros

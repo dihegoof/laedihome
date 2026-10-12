@@ -53,6 +53,19 @@ function spaceRow(line: string, keys: string[]): string[] | null {
   const match = new RegExp(`^${parts.join('\\s+')}$`).exec(line.trim());
   return match ? match.slice(1) : null;
 }
+function untitledRow(line: string): Record<string, string> | null {
+  // Fixed spreadsheet layout: date, load, origin, destination, name, SKU, description, boxes, pallets.
+  const match = /^(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})\s+(\d+)\s+([A-Za-z0-9]{4})\s+([A-Za-z0-9]{4})\s+(.+?)\s+(\d{5,})\s+(.+?)\s+(\d+(?:[.,]\d+)*)(?:\s+(\d+(?:[.,]\d+)*))?$/.exec(line.trim());
+  if (!match) return null;
+  const [,scheduled_date,load_number,origin_center,destination_center,destination_name,product_code,description,boxes,pallets] = match;
+  const quantity = (value: string) => /^\d{1,3}(?:\.\d{3})+$/.test(value) ? value.replace(/\./g, '') : value;
+  return { scheduled_date,load_number,origin_center,destination_center,destination_name,product_code,description,boxes:quantity(boxes),pallets:pallets ? quantity(pallets) : '' };
+}
+function carrierRow(line: string): Record<string, string> | null {
+  const match = /^(?:(\d+(?:[.,]\d+)*)\s+)?(.+?)\s+([A-Za-z]{3}[- ]?\d[A-Za-z0-9]\d{2})\s+(\d+)\s*$/.exec(line.trim());
+  if (!match) return null;
+  return { pallets:match[1] ?? '',carrier:match[2],plate:match[3].replace(/[- ]/g, '').toUpperCase(),driver_dt:match[4] };
+}
 export function validateDraft(draft: CargoDraft): string[] {
   const errors: string[] = [];
   if (!parseDate(draft.scheduled_date)) errors.push('Informe uma data prevista válida.');
@@ -72,6 +85,7 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
   let keys: string[] = [];
   const loads: CargoDraft[] = [];
   const unparsed: string[] = [];
+  let previousDraft: CargoDraft | undefined;
   for (const line of lines) {
     const cells = tokenize(line);
     let candidate = cells.map(headerKey);
@@ -83,10 +97,22 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
       candidate = Array.from(plain.matchAll(pattern)).map((m) => headerKey(m[0]));
     }
     if (candidate.includes('load_number') && candidate.includes('product_code') && candidate.includes('boxes') && new Set(candidate).size === candidate.length) { keys = candidate; continue; }
-    if (!keys.length) { unparsed.push(line); continue; }
-    let row = cells.length === keys.length ? cells : spaceRow(line, keys);
-    if (!row || row.length !== keys.length) { unparsed.push(line); continue; }
-    const data = Object.fromEntries(keys.map((key,i) => [key,row?.[i] ?? '']));
+    const untitled = !keys.length ? untitledRow(line) : null;
+    if (!keys.length && !untitled) {
+      const carrier = carrierRow(line);
+      if (carrier && previousDraft) {
+        for (const [key,label] of cargoFields) {
+          const next = carrier[key];
+          if (!next) continue;
+          if (previousDraft[key] && previousDraft[key] !== next) previousDraft.warnings.push(`${label} conflitante: “${previousDraft[key]}” / “${next}”.`);
+          else previousDraft[key] = next;
+        }
+      } else { unparsed.push(line); previousDraft = undefined; }
+      continue;
+    }
+    const row = untitled ? null : cells.length === keys.length ? cells : spaceRow(line, keys);
+    if (!untitled && (!row || row.length !== keys.length)) { unparsed.push(line); continue; }
+    const data = untitled ?? Object.fromEntries(keys.map((key,i) => [key,row?.[i] ?? '']));
     if (!data.load_number || !data.product_code) { unparsed.push(line); continue; }
     const date = parseDate(data.scheduled_date ?? '');
     let draft = loads.find((l) => l.load_number === data.load_number && l.scheduled_date === date);
@@ -101,7 +127,8 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
         else if (next) draft[key] = next;
       }
     }
-    if (cells.length !== keys.length) draft.warnings.push('Separação por padrões de texto: confira todos os campos antes de importar.');
+    previousDraft = draft;
+    if (!untitled && cells.length !== keys.length) draft.warnings.push('Separação por padrões de texto: confira todos os campos antes de importar.');
     for (const key of ['pallets','boxes']) if (/^\d+\.\d{3}$/.test(data[key]??'')) draft.warnings.push(`Valor “${data[key]}” com ponto: confirme se representa milhar ou decimal e ajuste se necessário.`);
     const product: ProductDraft = { product_code: data.product_code, description: data.description ?? '', boxes: data.boxes ?? '', extra_fields: Object.fromEntries(Object.entries(data).filter(([k]) => k.startsWith('extra:')).map(([k,v]) => [k.slice(6),v])) };
     const existing = draft.products.find((p) => p.product_code === product.product_code);
