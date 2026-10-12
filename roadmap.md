@@ -23,6 +23,7 @@
 - [x] Ajustar medidas do cardápio para receitas em g/kg e ml/l usando o mesmo estoque
 - [x] Remover horário do cadastro e organizar refeições por tipo
 - [x] Adicionar cancelamento de confirmação com devolução dos ingredientes
-- [ ] Integrar Controle de Cargas: interpretação local revisável, importação sem duplicações e dados compartilhados
-- [ ] Adicionar acompanhamento separado, histórico, filtros e exportação de cargas
-- [ ] Verificar regras e fluxo de Controle de Cargas sem inserir dados fictícios na produção
+- [x] Integrar Controle de Cargas: interpretação local revisável, importação sem duplicações e dados compartilhados
+- [x] Adicionar acompanhamento separado, histórico, filtros e exportação de cargas
+- [x] Verificar regras e prévia autenticada de Controle de Cargas sem inserir dados fictícios na produção
+- [ ] Conferir importação e acompanhamento com e-mail real de carregamento fornecido pelo usuário; nenhum exemplo real foi enviado

@@ -30,7 +30,7 @@ const aliases: Record<string, string[]> = {
   description: ['descricao', 'descricaoproduto', 'descricaodoproduto', 'descricaomaterial'],
   boxes: ['caixas', 'cx', 'qtd', 'quantidade', 'qtdcaixas', 'quantidadecaixas', 'quantidadeemcaixas'], notes: ['observacao', 'observacoes', 'obs'],
 };
-function headerKey(cell: string) { const n = normalize(cell); return Object.entries(aliases).find(([, names]) => names.some((a) => normalize(a) === n))?.[0] ?? `extra:${cell.trim()}`; }
+function headerKey(cell: string) { const n = normalize(cell); return cargoFields.find(([,label]) => normalize(label)===n)?.[0] ?? Object.entries(aliases).find(([, names]) => names.some((a) => normalize(a) === n))?.[0] ?? `extra:${cell.trim()}`; }
 export function blankCargo(): CargoDraft { return { scheduled_date: '', load_number: '', origin_center: '', destination_center: '', destination_name: '', carrier: '', plate: '', driver_dt: '', pallets: '', notes: '', products: [], warnings: [], reviewed: false, selected: true }; }
 export function numberValue(value: string): number | null {
   const v = value.trim().replace(/\s/g, '');
@@ -77,7 +77,7 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
     let candidate = cells.map(headerKey);
     if (!candidate.includes('load_number') && cells.length === 1) {
       // Outlook sometimes flattens a header into single spaces; longest aliases first.
-      const phrases = Object.values(aliases).flat().sort((a,b) => b.length-a.length);
+      const phrases = [...cargoFields.map(([,label]) => label.normalize('NFD').replace(/[\u0300-\u036f]/g,'')), 'Código do produto','Descrição do produto','Quantidade em caixas', ...Object.values(aliases).flat()].sort((a,b) => b.length-a.length);
       const pattern = new RegExp(`\\b(?:${phrases.map((p) => p.replace(/ /g, '\\s+')).join('|')})\\b`, 'gi');
       const plain = line.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       candidate = Array.from(plain.matchAll(pattern)).map((m) => headerKey(m[0]));
@@ -101,6 +101,8 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
         else if (next) draft[key] = next;
       }
     }
+    if (cells.length !== keys.length) draft.warnings.push('Separação por padrões de texto: confira todos os campos antes de importar.');
+    for (const key of ['pallets','boxes']) if (/^\d+\.\d{3}$/.test(data[key]??'')) draft.warnings.push(`Valor “${data[key]}” com ponto: confirme se representa milhar ou decimal e ajuste se necessário.`);
     const product: ProductDraft = { product_code: data.product_code, description: data.description ?? '', boxes: data.boxes ?? '', extra_fields: Object.fromEntries(Object.entries(data).filter(([k]) => k.startsWith('extra:')).map(([k,v]) => [k.slice(6),v])) };
     const existing = draft.products.find((p) => p.product_code === product.product_code);
     if (!existing) draft.products.push(product);

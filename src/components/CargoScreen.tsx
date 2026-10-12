@@ -55,7 +55,7 @@ function CargoContent() {
   const matching = (draft: CargoDraft) => loads.find((l) => l.scheduled_date === draft.scheduled_date && l.load_number === draft.load_number.trim());
   const selectedDrafts = drafts.filter((d) => d.selected);
   const duplicateKeys = selectedDrafts.some((d,i) => selectedDrafts.some((other,j) => i!==j && d.scheduled_date === other.scheduled_date && d.load_number.trim() === other.load_number.trim()));
-  const canImport = !!household && selectedDrafts.length > 0 && !duplicateKeys && selectedDrafts.every((d) => !validateDraft(d).length && (d.reviewed || !d.warnings.length) && (!matching(d) || d.reviewed)) && (!unparsed.length || ack);
+  const canImport = !!household && selectedDrafts.length > 0 && !duplicateKeys && selectedDrafts.every((d) => !validateDraft(d).length && d.reviewed) && (!unparsed.length || ack);
   async function importLoads() {
     if (!canImport) return;
     await run(async () => {
