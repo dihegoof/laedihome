@@ -48,7 +48,7 @@ function CargoContent() {
   },[household,qc]);
   async function refresh() { await Promise.all([qc.invalidateQueries({queryKey:['cargo_loads',household]}),qc.invalidateQueries({queryKey:['cargo_history',household]})]); }
   async function run(action: () => Promise<void>) {
-    if (!navigator.onLine) return toast.error('Conecte à internet para salvar as cargas.');
+    if (!navigator.onLine) { toast.error('Conecte à internet para salvar as cargas.'); return; }
     setBusy(true);
     try { await action(); await refresh(); } catch (error) { toast.error(errorMessage(error)); await refresh(); } finally { setBusy(false); }
   }
