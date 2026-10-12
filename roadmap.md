@@ -27,4 +27,4 @@
 - [x] Adicionar acompanhamento separado, histórico, filtros e exportação de cargas
 - [x] Verificar regras e prévia autenticada de Controle de Cargas sem inserir dados fictícios na produção
 - [ ] Conferir acompanhamento e importação final com texto real pelo usuário, sem inserir registros de teste
-- [ ] Reconhecer planilha sem títulos e transportadora na linha seguinte conforme foto enviada
+- [x] Reconhecer planilha sem títulos e transportadora na linha seguinte conforme foto enviada; 14 testes passaram sem gravar registros
