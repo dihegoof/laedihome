@@ -76,7 +76,7 @@ Ghelere  GHE0D11  106831794`;
   });
   test('imports a single product without inventing values',() => {const result=parseCargoEmail(header+'\n'+row());assert.equal(result.loads.length,1);assert.equal(result.loads[0].products[0].boxes,'30');assert.deepEqual(validateDraft(result.loads[0]),[]);});
   test('groups products and does not sum repeated pallet totals',() => {const result=parseCargoEmail(header+'\n'+row()+'\n'+row('100','201','40'));assert.equal(result.loads.length,1);assert.equal(result.loads[0].products.length,2);assert.equal(result.loads[0].pallets,'12');});
-  test('keeps different cargo numbers separate',() => {assert.equal(parseCargoEmail(header+'\n'+row()+'\n'+row('101')).loads.length,2);});
+  test('same DT groups rows even when cargo numbers conflict and keeps a warning',() => {const result=parseCargoEmail(header+'\n'+row()+'\n'+row('101'));assert.equal(result.loads.length,1);assert.ok(result.loads[0].warnings.some(w=>w.includes('Número da carga conflitante')));});
   test('deduplicates identical product rows',() => {assert.equal(parseCargoEmail(header+'\n'+row()+'\n'+row()).loads[0].products.length,1);});
   test('flags conflicting pallet totals without adding them',() => {const d=parseCargoEmail(header+'\n'+row()+'\n'+row('100','201','40','14')).loads[0];assert.ok(d.warnings.some((w) => w.includes('conflitante')));assert.equal(d.pallets,'12');});
   test('rejects missing quantities and impossible dates',() => {const d=parseCargoEmail(header+'\n'+row('100','200','')).loads[0];assert.ok(validateDraft(d).length>0);assert.equal(parseDate('31/02/2026'),'');});
