@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX cargo_loads_unique_household_dt ON public.cargo_loads(household_id,driver_dt) WHERE nullif(trim(driver_dt),'') IS NOT NULL;
+COMMENT ON INDEX public.cargo_loads_unique_household_dt IS 'One cargo per household DT; RPC serializes imports and preserves workflow on reimport.';
