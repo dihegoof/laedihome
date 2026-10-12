@@ -36,6 +36,13 @@
       "when": 1791305188036,
       "tag": "0004_weekly_menu_and_pantry_measures",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791820822122,
+      "tag": "0005_undo_weekly_menu_confirmation",
+      "breakpoints": true
     }
   ]
 }

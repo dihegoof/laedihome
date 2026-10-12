@@ -39,7 +39,7 @@ export function prioritizeDays(days: string[], today: string): string[] {
 }
 export function prioritizeMeals(plans: MenuPlan[], now: Date): MenuPlan[] {
   const today = localDate(now);
-  const time = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
-  const rank = (p: MenuPlan) => p.status !== "pending" ? 2 : p.meal_date === today && p.meal_time.slice(0, 5) < time ? 1 : 0;
-  return [...plans].sort((a, b) => rank(a) - rank(b) || a.meal_time.localeCompare(b.meal_time));
+  const rank = (p: MenuPlan) => p.status === "pending" ? 0 : 1;
+  const mealOrder = (p: MenuPlan) => MEAL_TYPES.findIndex((m) => m.value === p.meal_type);
+  return [...plans].sort((a, b) => Number(b.meal_date === today) - Number(a.meal_date === today) || a.meal_date.localeCompare(b.meal_date) || rank(a) - rank(b) || mealOrder(a) - mealOrder(b) || a.created_at.localeCompare(b.created_at));
 }
