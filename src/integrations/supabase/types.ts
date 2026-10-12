@@ -111,6 +111,183 @@ export type Database = {
           },
         ]
       }
+      cargo_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field: string
+          household_id: string
+          id: string
+          load_id: string
+          new_value: Json | null
+          note: string | null
+          old_value: Json | null
+          user_name: string
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          household_id: string
+          id?: string
+          load_id: string
+          new_value?: Json | null
+          note?: string | null
+          old_value?: Json | null
+          user_name: string
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          household_id?: string
+          id?: string
+          load_id?: string
+          new_value?: Json | null
+          note?: string | null
+          old_value?: Json | null
+          user_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cargo_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cargo_history_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cargo_history_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "cargo_loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cargo_loads: {
+        Row: {
+          billing_status: string
+          carrier: string | null
+          created_by: string | null
+          cte_status: string
+          destination_center: string | null
+          destination_name: string | null
+          driver_dt: string | null
+          household_id: string
+          id: string
+          imported_at: string
+          load_number: string
+          notes: string
+          operational_status: string
+          origin_center: string | null
+          pallets: number | null
+          plate: string | null
+          print_status: string
+          scheduled_date: string
+          updated_at: string
+        }
+        Insert: {
+          billing_status?: string
+          carrier?: string | null
+          created_by?: string | null
+          cte_status?: string
+          destination_center?: string | null
+          destination_name?: string | null
+          driver_dt?: string | null
+          household_id: string
+          id?: string
+          imported_at?: string
+          load_number: string
+          notes?: string
+          operational_status?: string
+          origin_center?: string | null
+          pallets?: number | null
+          plate?: string | null
+          print_status?: string
+          scheduled_date: string
+          updated_at?: string
+        }
+        Update: {
+          billing_status?: string
+          carrier?: string | null
+          created_by?: string | null
+          cte_status?: string
+          destination_center?: string | null
+          destination_name?: string | null
+          driver_dt?: string | null
+          household_id?: string
+          id?: string
+          imported_at?: string
+          load_number?: string
+          notes?: string
+          operational_status?: string
+          origin_center?: string | null
+          pallets?: number | null
+          plate?: string | null
+          print_status?: string
+          scheduled_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cargo_loads_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cargo_loads_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cargo_products: {
+        Row: {
+          boxes: number
+          description: string
+          extra_fields: Json
+          id: string
+          load_id: string
+          product_code: string
+        }
+        Insert: {
+          boxes: number
+          description: string
+          extra_fields?: Json
+          id?: string
+          load_id: string
+          product_code: string
+        }
+        Update: {
+          boxes?: number
+          description?: string
+          extra_fields?: Json
+          id?: string
+          load_id?: string
+          product_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cargo_products_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "cargo_loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cleaning_history: {
         Row: {
           completed_at: string
@@ -1060,6 +1237,7 @@ export type Database = {
           token: string
         }[]
       }
+      import_cargo_loads: { Args: { _loads: Json }; Returns: number }
       is_household_owner: { Args: { _household_id: string }; Returns: boolean }
       join_household: { Args: { _code: string }; Returns: string }
       menu_stock_amount: {
@@ -1084,6 +1262,15 @@ export type Database = {
       }
       undo_menu_confirmation: {
         Args: { _confirmed_at: string; _id: string }
+        Returns: undefined
+      }
+      update_cargo_load: {
+        Args: {
+          _expected_updated_at: string
+          _id: string
+          _note?: string
+          _patch: Json
+        }
         Returns: undefined
       }
     }
