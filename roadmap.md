@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Agilizar cargas: colar e salvar novas cargas válidas direto, revisar apenas exceções e abrir dados em um clique
+
 - [x] Corrigir leitura das 12 colunas sem títulos, agrupamento por DT e pallets por produto
 - [x] Simplificar espelho e finalização de faturamento, erros, espera e etapas independentes
 - [x] Separar cargas do dia e histórico temporário de 30 dias; registros expirados deixam de estar acessíveis no app, sem exclusão física
