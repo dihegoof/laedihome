@@ -205,7 +205,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
                   )}
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {Number(p.quantity) > 0 ? (
-                      <>Em casa: {qty(Number(p.quantity))} {p.stock_unit ?? "un"}</>
+                      <>Em casa: {formatStock(Number(p.quantity), p.stock_unit)}</>
                     ) : (
                       <span className="text-destructive">
                         Acabou{p.out_of_stock_since ? ` há ${daysSince(p.out_of_stock_since)} dia(s)` : ""}
