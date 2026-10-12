@@ -46,7 +46,7 @@ export function parseDate(value: string) {
   const date = new Date(`${iso}T12:00:00Z`);
   return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === iso ? iso : '';
 }
-function tokenize(line: string) { return line.trim().split(/\t+|\s*[|;]\s*|\s{2,}/).map((v) => v.trim()); }
+function tokenize(line: string) { return line.replace(/^ +| +$/g,'').split(/\t| *[|;] *| {2,}/).map((v) => v.trim()); }
 function spaceRow(line: string, keys: string[]): string[] | null {
   const numeric = '(\\d+(?:[.,]\\d+)*)';
   const parts = keys.map((key) => key === 'scheduled_date' ? '(\\d{2}/\\d{2}/\\d{4}|\\d{4}-\\d{2}-\\d{2})' : ['load_number','origin_center','destination_center','driver_dt','product_code'].includes(key) ? '(\\S+)' : ['pallets','boxes'].includes(key) ? numeric : key === 'plate' ? '([A-Za-z]{3}[- ]?\\d[A-Za-z0-9]\\d{2})' : '(.+?)');
@@ -68,7 +68,7 @@ export function validateDraft(draft: CargoDraft): string[] {
   return errors;
 }
 export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: string[] } {
-  const lines = text.replace(/\r/g, '').replace(/\u00a0/g, ' ').split('\n').map((v) => v.trim()).filter(Boolean);
+  const lines = text.replace(/\r/g, '').replace(/\u00a0/g, ' ').split('\n').filter((v) => v.trim());
   let keys: string[] = [];
   const loads: CargoDraft[] = [];
   const unparsed: string[] = [];
@@ -78,7 +78,7 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
     if (!candidate.includes('load_number') && cells.length === 1) {
       // Outlook sometimes flattens a header into single spaces; longest aliases first.
       const phrases = Object.values(aliases).flat().sort((a,b) => b.length-a.length);
-      const pattern = new RegExp(phrases.map((p) => p.replace(/ /g, '\\s+')).join('|'), 'gi');
+      const pattern = new RegExp(`\\b(?:${phrases.map((p) => p.replace(/ /g, '\\s+')).join('|')})\\b`, 'gi');
       const plain = line.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       candidate = Array.from(plain.matchAll(pattern)).map((m) => headerKey(m[0]));
     }
