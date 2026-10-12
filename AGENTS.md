@@ -14,3 +14,5 @@
 - Keep meal planning as a Pantry subview; perform preparation and inventory consumption in one household-validated database transaction with row locks, so simultaneous confirmations cannot double-consume stock.
 - Store an explicit stock unit on products and snapshot ingredient measures in meal plans; reject incompatible measures and changed stock units rather than guessing package sizes.
 - Keep weekly-menu dates in route search and subscribe to household-scoped Query data inside the Pantry subview; reuse database RPCs for online-only mutations to preserve atomic stock consumption.
+- Undo menu confirmations through a household-scoped RPC locking the plan and stock rows, checking the original confirmation timestamp, and restoring snapshot quantities once; this prevents duplicate refunds or stale cancellation of a later preparation.
+- Order weekly-menu meals by meal type and keep legacy time values only for RPC compatibility, so the editor never requires a user-entered time.
