@@ -23,7 +23,7 @@ import { useInvalidate, useProducts, logHistory } from "@/lib/data";
 import { type Product } from "@/lib/types";
 import { useProductCategories } from "@/lib/settings";
 import { compressImage, fileToDataUrl, uploadFile } from "@/lib/storage";
-import { daysSince, qty } from "@/lib/format";
+import { daysSince, formatStock, qty } from "@/lib/format";
 import { parseReceipt, parseReceiptImage } from "@/lib/ai.functions";
 
 type Draft = {
