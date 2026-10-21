@@ -1,8 +1,8 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle, Check, ChevronDown, Download, FileText, Pencil, Plus,
-  Printer, Search, Trash2, Truck, X,
+  AlertTriangle, ArrowLeft, Check, ChevronDown, Download, FileText, Pencil,
+  Plus, Printer, Search, Trash2, Truck, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
@@ -24,7 +24,7 @@ function errorMessage(error: unknown) {
     : "Não foi possível salvar. Tente novamente.";
 }
 
-/* ---------- Classificação da fila ---------- */
+/* ---------- Classificação ---------- */
 
 type Bucket = "pending" | "error" | "printed" | "done";
 
@@ -49,12 +49,22 @@ const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
 
 /** PLACA - 4 últimos do DT | transportadora */
 function shortLabel(l: CargoLoad) {
-  const plate = (l.plate ?? "").trim() || "SEM PLACA";
+  const plate = (l.plate ?? "").trim().toUpperCase() || "SEM PLACA";
   const dt = (l.driver_dt ?? "").trim();
   const tail = dt.length >= 4 ? dt.slice(-4) : dt;
   const carrier = (l.carrier ?? "").trim() || "sem transportadora";
   return dt ? `${plate} - ${tail} | ${carrier}` : `${plate} | ${carrier}`;
 }
+
+const loadPallets = (l: CargoLoad) =>
+  l.cargo_products.reduce((s, p) => {
+    const raw = (p.extra_fields as Record<string, unknown>)?.["Pallets do produto"];
+    const n = numberValue(String(raw ?? ""));
+    return s + (n ?? 0);
+  }, 0);
+
+const productPallets = (p: CargoLoad["cargo_products"][number]) =>
+  (p.extra_fields as Record<string, unknown>)?.["Pallets do produto"] ?? "—";
 
 const byDt = (a: CargoLoad, b: CargoLoad) =>
   String(a.driver_dt ?? "").localeCompare(String(b.driver_dt ?? ""), "pt-BR", { numeric: true });
@@ -76,9 +86,12 @@ function CargoContent() {
 
   const [selected, setSelected] = useState<string | null>(null);
   const [pasteOpen, setPasteOpen] = useState(false);
-  const [historyOpen, setHistoryOpen] = useState(false);
+  const [daysOpen, setDaysOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [showDone, setShowDone] = useState(false);
+  /** null = fila de hoje; "2026-10-10" = histórico daquele dia */
+  const [viewDay, setViewDay] = useState<string | null>(null);
 
   const { data: loads = [] } = useSuspenseQuery({
     queryKey: ["cargo_loads", household],
@@ -112,6 +125,7 @@ function CargoContent() {
       qc.invalidateQueries({ queryKey: ["cargo_loads", household] }),
       qc.invalidateQueries({ queryKey: ["cargo_history", household] }),
     ]);
+    await qc.refetchQueries({ queryKey: ["cargo_loads", household] });
   }
 
   async function run(action: () => Promise<void>) {
@@ -122,24 +136,38 @@ function CargoContent() {
     finally { setBusy(false); }
   }
 
+  /**
+   * Grava direto na tabela, sem o _expected_updated_at.
+   * O RPC antigo devolvia sucesso mesmo quando o timestamp não batia,
+   * e o status voltava sozinho na tela seguinte.
+   */
   async function saveStages(load: CargoLoad, patch: Record<string, unknown>, note: string) {
     await run(async () => {
-      const { error } = await supabase.rpc("update_cargo_load", {
-        _id: load.id,
-        _patch: patch as never,
-        _note: note,
-        _expected_updated_at: load.updated_at,
-      } as never);
+      const { error } = await supabase
+        .from("cargo_loads")
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", load.id);
       if (error) throw error;
+
+      await supabase.from("cargo_history").insert({
+        household_id: load.household_id,
+        load_id: load.id,
+        field: Object.keys(patch)[0] ?? "nota",
+        value: Object.values(patch)[0] as never,
+        note,
+      });
+
       toast.success("Carga atualizada");
     });
   }
 
-  /* Fila do dia: separa pela data real de importação (registered_at) */
+  /* Fila do dia / dia escolhido no histórico */
   const today = cargoDay();
-  const todayLoads = useMemo(
-    () => loads.filter((l) => cargoDay(new Date(l.registered_at)) === today),
-    [loads, today],
+  const activeDay = viewDay ?? today;
+
+  const dayLoads = useMemo(
+    () => loads.filter((l) => cargoDay(new Date(l.registered_at)) === activeDay),
+    [loads, activeDay],
   );
 
   const groups = useMemo(() => {
@@ -149,13 +177,18 @@ function CargoContent() {
       [l.load_number, l.destination_name, l.carrier, l.plate, l.driver_dt]
         .some((v) => String(v ?? "").toLowerCase().includes(term));
     const out: Record<Bucket, CargoLoad[]> = { pending: [], error: [], printed: [], done: [] };
-    for (const l of todayLoads) if (match(l)) out[bucketOf(l)].push(l);
+    for (const l of dayLoads) if (match(l)) out[bucketOf(l)].push(l);
     for (const k of Object.keys(out) as Bucket[]) out[k].sort(byDt);
     return out;
-  }, [todayLoads, search]);
+  }, [dayLoads, search]);
 
   const current = loads.find((l) => l.id === selected) ?? null;
+  const visible = [
+    ...groups.pending, ...groups.error, ...groups.printed,
+    ...(showDone ? groups.done : []),
+  ];
   const openCount = groups.pending.length + groups.error.length + groups.printed.length;
+  const isHistory = viewDay !== null;
 
   return (
     <div className="space-y-4">
@@ -167,7 +200,7 @@ function CargoContent() {
           {openCount > 0 && <Pill tone={"warning" as never}>{openCount} em aberto</Pill>}
         </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
+          <Button size="sm" variant="outline" onClick={() => setDaysOpen(true)}>
             <FileText className="h-4 w-4" /> Histórico
           </Button>
           <Button size="sm" variant="soft" onClick={() => setPasteOpen(true)}>
@@ -176,8 +209,20 @@ function CargoContent() {
         </div>
       </div>
 
+      {/* Aviso do dia no histórico */}
+      {isHistory && (
+        <div className="flex items-center justify-between gap-2 rounded-xl bg-primary-soft px-3 py-2">
+          <span className="text-[13px] font-semibold text-primary">
+            Mostrando {dateLabel(activeDay)}
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => { setViewDay(null); setSelected(null); }}>
+            <ArrowLeft className="h-4 w-4" /> Voltar para hoje
+          </Button>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-2">
-        {/* ESQUERDA — fila do dia */}
+        {/* ESQUERDA — lista */}
         <section className="space-y-3">
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -188,9 +233,28 @@ function CargoContent() {
             />
           </div>
 
-          {todayLoads.length === 0 && <EmptyState>Nenhuma carga importada hoje.</EmptyState>}
+          <label className="flex items-center gap-2 text-[13px] text-muted-foreground">
+            <input
+              type="checkbox" checked={showDone}
+              onChange={(e) => setShowDone(e.target.checked)}
+              className="h-4 w-4 rounded border-border accent-primary"
+            />
+            Mostrar finalizadas na lista
+          </label>
+
+          {dayLoads.length === 0 && (
+            <EmptyState>
+              {isHistory ? "Nenhuma carga registrada nesse dia." : "Nenhuma carga importada hoje."}
+            </EmptyState>
+          )}
+          {dayLoads.length > 0 && visible.length === 0 && (
+            <EmptyState>
+              {showDone ? "Nada para mostrar." : "Tudo finalizado. Marque a opção acima para ver."}
+            </EmptyState>
+          )}
 
           {BUCKETS.map(({ key, label, tone }) => {
+            if (key === "done" && !showDone) return null;
             const items = groups[key];
             if (!items.length) return null;
             return (
@@ -207,11 +271,11 @@ function CargoContent() {
                       selected === l.id
                         ? "border-primary bg-primary-soft"
                         : "border-border bg-card hover:border-primary/40"
-                    }`}
+                    } ${key === "done" ? "opacity-70" : ""}`}
                   >
                     <span className="block truncate text-sm font-semibold">{shortLabel(l)}</span>
                     <span className="block truncate text-[11px] text-muted-foreground">
-                      {l.destination_name ?? "sem destino"} · {l.cargo_products.length} prod. ·{" "}
+                      {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
                       {l.cargo_products.reduce((s, p) => s + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
                     </span>
                   </button>
@@ -221,7 +285,7 @@ function CargoContent() {
           })}
         </section>
 
-        {/* DIREITA — espelho compacto */}
+        {/* DIREITA — espelho */}
         <section>
           {!current ? (
             <EmptyState>Toque em uma carga para abrir o espelho.</EmptyState>
@@ -229,9 +293,9 @@ function CargoContent() {
             <div className="space-y-3 rounded-2xl border border-border bg-card p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h3 className="truncate text-base">Carga {current.load_number}</h3>
+                  <h3 className="truncate text-base">{shortLabel(current)}</h3>
                   <p className="truncate text-xs text-muted-foreground">
-                    {current.destination_name ?? "sem destino"}
+                    {current.destination_name ?? "sem destino"} · {dateLabel(current.scheduled_date)}
                   </p>
                 </div>
                 <Button size="icon" variant="ghost" onClick={() => setSelected(null)} aria-label="Fechar espelho">
@@ -239,7 +303,6 @@ function CargoContent() {
                 </Button>
               </div>
 
-              {/* Ações no topo */}
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" disabled={busy}
                   onClick={() => saveStages(current, { print_status: "manual" }, "Marcada como impressa")}>
@@ -255,30 +318,41 @@ function CargoContent() {
                 </Button>
               </div>
 
-              {/* Produtos primeiro */}
+              {/* Produtos: código, descrição, pallets por produto */}
               <div>
                 <h4 className="text-[13px] font-semibold">Produtos</h4>
                 <table className="mt-1 w-full text-[13px]">
+                  <thead>
+                    <tr className="text-left text-[10px] uppercase text-muted-foreground">
+                      <th className="pb-1">Código</th>
+                      <th className="pb-1">Descrição</th>
+                      <th className="pb-1 text-right">Pallets</th>
+                      <th className="pb-1 text-right text-[9px]">Caixas</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {current.cargo_products.map((p) => (
                       <tr key={p.id} className="border-t border-border">
                         <td className="py-1 pr-2 text-muted-foreground">{p.product_code}</td>
                         <td className="py-1 pr-2">{p.description}</td>
-                        <td className="py-1 text-right whitespace-nowrap">
-                          {Number(p.boxes).toLocaleString("pt-BR")} cx
+                        <td className="py-1 text-right font-semibold whitespace-nowrap">
+                          {String(productPallets(p))}
+                        </td>
+                        <td className="py-1 text-right text-[11px] text-muted-foreground whitespace-nowrap">
+                          {Number(p.boxes).toLocaleString("pt-BR")}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 <p className="mt-1 text-[11px] text-muted-foreground">
-                  Total {current.cargo_products.reduce((s, p) => s + Number(p.boxes), 0).toLocaleString("pt-BR")} caixas
-                  · {current.pallets ?? "—"} pallets
+                  Total {loadPallets(current)} pallets ·{" "}
+                  {current.cargo_products.reduce((s, p) => s + Number(p.boxes), 0).toLocaleString("pt-BR")} caixas
                 </p>
               </div>
 
-              {/* Placa, DT, transportadora */}
-              <div className="grid grid-cols-3 gap-2 rounded-xl bg-secondary/50 p-2 text-[13px]">
+              {/* Placa, DT, pallets totais, transportadora */}
+              <div className="grid grid-cols-4 gap-2 rounded-xl bg-secondary/50 p-2 text-[12px]">
                 <div>
                   <p className="text-[10px] uppercase text-muted-foreground">Placa</p>
                   <p className="font-semibold">{current.plate ?? "—"}</p>
@@ -287,16 +361,19 @@ function CargoContent() {
                   <p className="text-[10px] uppercase text-muted-foreground">DT</p>
                   <p className="font-semibold">{current.driver_dt ?? "—"}</p>
                 </div>
+                <div>
+                  <p className="text-[10px] uppercase text-muted-foreground">Pallets</p>
+                  <p className="font-semibold">{loadPallets(current)}</p>
+                </div>
                 <div className="min-w-0">
                   <p className="text-[10px] uppercase text-muted-foreground">Transportadora</p>
                   <p className="truncate font-semibold">{current.carrier ?? "—"}</p>
                 </div>
               </div>
 
-              {/* Demais dados */}
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
                 {cargoFields
-                  .filter(([key]) => !["plate", "driver_dt", "carrier", "destination_name"].includes(key))
+                  .filter(([key]) => !["plate", "driver_dt", "carrier", "destination_name", "pallets"].includes(key))
                   .map(([key, label]) => (
                     <div key={key} className="flex gap-1">
                       <dt className="text-muted-foreground">{label}:</dt>
@@ -340,8 +417,8 @@ function CargoContent() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setHistoryOpen(true)}>
-                  <ChevronDown className="h-4 w-4" /> Histórico do veículo
+                <Button size="sm" variant="ghost" onClick={() => setDaysOpen(true)}>
+                  <ChevronDown className="h-4 w-4" /> Histórico
                 </Button>
                 <Button size="sm" variant="ghost" disabled={busy}>
                   <Pencil className="h-4 w-4" /> Observações
@@ -351,6 +428,19 @@ function CargoContent() {
           )}
         </section>
       </div>
+
+      {/* Dias com carga registrada */}
+      <Modal open={daysOpen} onClose={() => setDaysOpen(false)} title="Histórico — escolha o dia">
+        <DayPicker
+          loads={loads}
+          onPick={(day) => {
+            setViewDay(day);
+            setSelected(null);
+            setDaysOpen(false);
+            setShowDone(true);
+          }}
+        />
+      </Modal>
 
       {/* Importar */}
       <Modal open={pasteOpen} onClose={() => setPasteOpen(false)} title="Importar cargas">
@@ -375,114 +465,41 @@ function CargoContent() {
           }}
         />
       </Modal>
-
-      {/* Histórico por veículo */}
-      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title="Histórico por veículo">
-        <VehicleHistory household={household} current={current} />
-      </Modal>
     </div>
   );
 }
 
-/* ---------- Histórico por veículo ---------- */
+/* ---------- Escolha do dia ---------- */
 
-function VehicleHistory({ household, current }: { household?: string; current: CargoLoad | null }) {
-  const [plate, setPlate] = useState<string | null>(current?.plate ?? null);
-
-  const { data: all = [], isLoading } = useQuery({
-    queryKey: ["cargo_history_all", household],
-    enabled: !!household,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cargo_loads")
-        .select("*,cargo_products(*)")
-        .eq("household_id", household!)
-        .order("registered_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as CargoLoad[];
-    },
-  });
-
-  const byVehicle = useMemo(() => {
+function DayPicker({ loads, onPick }: { loads: CargoLoad[]; onPick: (day: string) => void }) {
+  const days = useMemo(() => {
     const map = new Map<string, CargoLoad[]>();
-    for (const l of all) {
-      const key = (l.plate ?? "").trim().toUpperCase() || "SEM PLACA";
+    for (const l of loads) {
+      const key = cargoDay(new Date(l.registered_at));
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(l);
     }
-    for (const list of map.values()) list.sort(byDt);
-    return map;
-  }, [all]);
+    return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+  }, [loads]);
 
-  const plates = useMemo(
-    () => [...byVehicle.keys()].sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [byVehicle],
-  );
-
-  if (isLoading) return <EmptyState><Spinner /> Carregando histórico...</EmptyState>;
-  if (!plates.length) return <EmptyState>Nenhuma carga registrada.</EmptyState>;
-
-  const list = plate ? byVehicle.get(plate) ?? [] : [];
+  const today = cargoDay();
+  if (!days.length) return <EmptyState>Nenhuma carga registrada ainda.</EmptyState>;
 
   return (
-    <div className="space-y-3">
-      <Field label="Veículo">
-        <select
-          value={plate ?? ""} onChange={(e) => setPlate(e.target.value)}
-          className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+    <div className="space-y-2">
+      {days.map(([day, items]) => (
+        <button
+          key={day} onClick={() => onPick(day)}
+          className="flex w-full items-center justify-between gap-2 rounded-xl border border-border bg-card px-3 py-2 text-left hover:border-primary/40"
         >
-          <option value="">Selecione a placa</option>
-          {plates.map((p) => (
-            <option key={p} value={p}>{p} · {byVehicle.get(p)!.length} carga(s)</option>
-          ))}
-        </select>
-      </Field>
-
-      {plate && list.length === 0 && <EmptyState>Nenhuma carga para essa placa.</EmptyState>}
-
-      {plate && list.length > 0 && (
-        <div className="space-y-2">
-          {list.map((l) => (
-            <article key={l.id} className="rounded-xl border border-border bg-card p-3">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold">
-                  Carga {l.load_number} · {l.destination_name ?? "sem destino"}
-                </span>
-                <span className="text-[11px] text-muted-foreground">
-                  {dateLabel(cargoDay(new Date(l.registered_at)))}
-                </span>
-              </div>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {l.carrier ?? "sem transportadora"} · {l.pallets ?? "—"} pallets
-              </p>
-              <ul className="mt-1 space-y-0.5">
-                {l.cargo_products.map((p) => (
-                  <li key={p.id} className="flex justify-between gap-2 text-[12px]">
-                    <span className="truncate text-muted-foreground">{p.description}</span>
-                    <span className="whitespace-nowrap">{Number(p.boxes).toLocaleString("pt-BR")} cx</span>
-                  </li>
-                ))}
-              </ul>
-            </article>
-          ))}
-        </div>
-      )}
-
-      {plate && list.length > 0 && (
-        <Button
-          variant="outline" size="sm"
-          onClick={() => {
-            const csv = cargoCsv(list, true);
-            const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-            const a = document.createElement("a");
-            a.href = url; a.download = `historico-${plate}.csv`; a.click();
-            URL.revokeObjectURL(url);
-          }}
-        >
-          <Download className="h-4 w-4" /> Baixar CSV do veículo
-        </Button>
-      )}
+          <span className="text-sm font-semibold">
+            {dateLabel(day)}{day === today ? " · hoje" : ""}
+          </span>
+          <span className="text-[12px] text-muted-foreground">
+            {items.length} carga(s)
+          </span>
+        </button>
+      ))}
     </div>
   );
 }
@@ -567,7 +584,8 @@ function ImportCargo({
       )}
 
       <div className="flex gap-2">
-        <Button disabled={busy || !ready.length} onClick={() => void onImport([...ready, ...review])}>
+        <Button disabled={busy || (!ready.length && !review.length)}
+          onClick={() => void onImport([...ready, ...review])}>
           {busy ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />}
           Importar {ready.length + review.length || ""}
         </Button>
