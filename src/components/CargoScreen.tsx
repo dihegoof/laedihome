@@ -362,7 +362,7 @@ function CargoContent() {
                   <AlertTriangle className="h-4 w-4" /> Erro
                 </Button>
                 <Button size="sm" variant="outline" disabled={busy}
-                  nClick={() => saveStages(current, { ...billingCompletionPatch(), operational_status: "finished" }, "Carga finalizada", )}
+                  onClick={() => saveStages(current, { ...billingCompletionPatch(), operational_status: "finished" }, "Carga finalizada", )}
                   <Check className="h-4 w-4" /> Finalizar
                 </Button>
 
