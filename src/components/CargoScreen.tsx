@@ -362,9 +362,10 @@ function CargoContent() {
                   <AlertTriangle className="h-4 w-4" /> Erro
                 </Button>
                 <Button size="sm" variant="outline" disabled={busy}
-                  onClick={() => saveStages(current, { ...billingCompletionPatch(), operational_status: "finished" }, "Carga finalizada", )}
+                  nClick={() => saveStages(current, { ...billingCompletionPatch(), operational_status: "finished" }, "Carga finalizada", )}
                   <Check className="h-4 w-4" /> Finalizar
                 </Button>
+
                 {bucketOf(current) === "pending" && (<Button size="sm" variant="dangerGhost" disabled={busy} onClick={() => deleteLoad(current)}>
                   <Trash2 className="h-4 w-4" /> Excluir
                 </Button> )}
