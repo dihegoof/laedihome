@@ -141,24 +141,42 @@ function CargoContent() {
    * O RPC antigo devolvia sucesso mesmo quando o timestamp não batia,
    * e o status voltava sozinho na tela seguinte.
    */
-  async function saveStages(load: CargoLoad, patch: Record<string, unknown>, note: string) {
-    await run(async () => {
-      const { error } = await supabase
+    async function saveStages(load: CargoLoad, patch: Record<string, unknown>, note: string) {
+    if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
+    const key = ["cargo_loads", household];
+
+    // 1) Mostra a mudança na hora, sem esperar o banco
+    qc.setQueryData<CargoLoad[]>(key, (old) =>
+      (old ?? []).map((l) => (l.id === load.id ? ({ ...l, ...patch } as CargoLoad) : l)),
+    );
+
+    setBusy(true);
+    try {
+      // 2) Pega o carimbo de atualização mais recente direto do banco
+      const { data: fresh, error: readError } = await supabase
         .from("cargo_loads")
-        .update({ ...patch, updated_at: new Date().toISOString() })
-        .eq("id", load.id);
+        .select("updated_at")
+        .eq("id", load.id)
+        .single();
+      if (readError) throw readError;
+
+      // 3) Grava pela função do próprio app
+      const { error } = await supabase.rpc("update_cargo_load", {
+        _id: load.id,
+        _patch: patch as never,
+        _note: note,
+        _expected_updated_at: fresh.updated_at,
+      } as never);
       if (error) throw error;
 
-      await supabase.from("cargo_history").insert({
-        household_id: load.household_id,
-        load_id: load.id,
-        field: Object.keys(patch)[0] ?? "nota",
-        value: Object.values(patch)[0] as never,
-        note,
-      });
-
       toast.success("Carga atualizada");
-    });
+    } catch (e) {
+      // Se falhar, desfaz a mudança na tela e mostra o motivo real
+      toast.error(errorMessage(e));
+    } finally {
+      await qc.invalidateQueries({ queryKey: key });
+      setBusy(false);
+    }
   }
 
   /* Fila do dia / dia escolhido no histórico */
