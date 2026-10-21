@@ -1,190 +1,484 @@
-import { Suspense, useEffect, useState } from 'react';
-import { useQueryClient, useSuspenseQuery, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Check, ChevronDown, Download, FileText, Filter, Pencil, Plus, Search, Trash2, Truck, X } from 'lucide-react';
-import { toast } from 'sonner';
-import { Button, EmptyState, Field, Pill, Spinner } from '@/components/kit';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { billingCompletionPatch, cargoDay, cargoIdentity, cargoIssueOptions, cargoPeriod, cargoCsv, cargoDifferences, cargoFields, cargoSummary, emptyFilters, filterCargos, numberValue, quickCargoImport, stageLabel, stages, validateDraft, type CargoDraft, type CargoHistory, type CargoLoad, type Stage } from '@/lib/cargo';
-import type { Json } from '@/integrations/supabase/types';
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
+import {
+  AlertTriangle, Check, ChevronDown, Download, FileText, Filter, Pencil,
+  Plus, Printer, Search, Trash2, Truck, X,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  billingCompletionPatch, cargoDay, cargoIdentity, cargoIssueOptions, cargoCsv,
+  cargoDifferences, cargoFields, numberValue, quickCargoImport, stageLabel,
+  stages, validateDraft,
+  type CargoDraft, type CargoHistory, type CargoLoad, type Stage,
+} from "@/lib/cargo";
 
-const dateLabel = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString('pt-BR');
-const timeLabel = (v: string) => new Date(v).toLocaleString('pt-BR');
-function errorMessage(error: unknown) { return error && typeof error === 'object' && 'message' in error ? String(error.message) : 'Não foi possível salvar. Tente novamente.'; }
-export function CargoScreen() {
-  return <Suspense fallback={<EmptyState><Spinner /> Carregando cargas...</EmptyState>}><CargoContent /></Suspense>;
+const dateLabel = (v: string) => new Date(`${v}T12:00:00`).toLocaleDateString("pt-BR");
+const timeLabel = (v: string) => new Date(v).toLocaleString("pt-BR");
+function errorMessage(error: unknown) {
+  return error && typeof error === "object" && "message" in error
+    ? String(error.message)
+    : "Não foi possível salvar. Tente novamente.";
 }
+
+/* ---------- Regras de classificação da fila ---------- */
+
+type Bucket = "pending" | "printed" | "error" | "done";
+
+const isPrinted = (l: CargoLoad) =>
+  ["automatic", "manual"].includes(l.print_status);
+const hasCte = (l: CargoLoad) =>
+  ["automatic", "manual"].includes(l.cte_status);
+const hasIssue = (l: CargoLoad) =>
+  !!l.billing_issue && l.billing_issue !== "none" && l.billing_issue !== "Sem impedimento";
+const isCancelled = (l: CargoLoad) => l.billing_status === "cancelled";
+const isDone = (l: CargoLoad) =>
+  l.operational_status === "finished" || l.operational_status === "cancelled";
+
+function bucketOf(l: CargoLoad): Bucket {
+  if (isDone(l)) return "done";
+  if (hasIssue(l) || isCancelled(l)) return "error";
+  if (isPrinted(l) && !hasCte(l)) return "printed";
+  return "pending";
+}
+
+const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
+  { key: "pending", label: "Pendente de faturamento", tone: "warning" },
+  { key: "printed", label: "Impressa sem CTe", tone: "accent" },
+  { key: "error", label: "Nota com erro", tone: "danger" },
+  { key: "done", label: "Finalizada", tone: "success" },
+];
+
+/* ---------- Tela ---------- */
+
+export function CargoScreen() {
+  return (
+    <Suspense fallback={<EmptyState><Spinner /> Carregando cargas...</EmptyState>}>
+      <CargoContent />
+    </Suspense>
+  );
+}
+
 function CargoContent() {
   const { profile } = useAuth();
   const household = profile?.household_id;
   const qc = useQueryClient();
-  const [text,setText] = useState('');
-  const [drafts,setDrafts] = useState<CargoDraft[]>([]);
-  const [unparsed,setUnparsed] = useState<string[]>([]);
-  const [ack,setAck] = useState(false);
-  const [busy,setBusy] = useState(false);
-  const [pasteOpen,setPasteOpen] = useState(false);
-  const [filters,setFilters] = useState(emptyFilters);
-  const [expandedFilters,setExpandedFilters] = useState(false);
-  const [sort,setSort] = useState('scheduled_date');
-  const [period,setPeriod] = useState<'today'|'history'>('today');
-  const [today,setToday] = useState(()=>cargoDay());
-  useEffect(()=>{const timer=window.setInterval(()=>setToday(cargoDay()),60_000);return ()=>window.clearInterval(timer);},[]);
-  const [selected,setSelected] = useState<string | null>(null);
-  const { data: loads } = useSuspenseQuery({
-    queryKey: ['cargo_loads',household],
+
+  const [selected, setSelected] = useState<string | null>(null);
+  const [dayOpen, setDayOpen] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const { data: loads = [] } = useSuspenseQuery({
+    queryKey: ["cargo_loads", household],
     staleTime: 30_000,
     queryFn: async () => {
       if (!household) return [];
-      const { data,error } = await supabase.from('cargo_loads').select('*,cargo_products(*)').eq('household_id',household).order('scheduled_date',{ascending:false});
+      const { data, error } = await supabase
+        .from("cargo_loads")
+        .select("*,cargo_products(*)")
+        .eq("household_id", household)
+        .order("imported_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as CargoLoad[];
     },
   });
+
   useEffect(() => {
     if (!household) return;
     const channel = supabase.channel(`cargo-${household}`);
-    for (const table of ['cargo_loads','cargo_products','cargo_history']) channel.on('postgres_changes',{event:'*',schema:'public',table},() => {
-      void qc.invalidateQueries({queryKey:['cargo_loads',household]});
-      void qc.invalidateQueries({queryKey:['cargo_history',household]});
-    });
+    for (const table of ["cargo_loads", "cargo_products", "cargo_history"])
+      channel.on("postgres_changes", { event: "*", schema: "public", table }, () => {
+        void qc.invalidateQueries({ queryKey: ["cargo_loads", household] });
+        void qc.invalidateQueries({ queryKey: ["cargo_history", household] });
+      });
     channel.subscribe();
     return () => { void supabase.removeChannel(channel); };
-  },[household,qc]);
-  async function refresh() { await Promise.all([qc.invalidateQueries({queryKey:['cargo_loads',household]}),qc.invalidateQueries({queryKey:['cargo_history',household]})]); }
+  }, [household, qc]);
+
+  async function refresh() {
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: ["cargo_loads", household] }),
+      qc.invalidateQueries({ queryKey: ["cargo_history", household] }),
+    ]);
+  }
+
   async function run(action: () => Promise<void>) {
-    if (!navigator.onLine) { toast.error('Conecte à internet para salvar as cargas.'); return; }
+    if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
     setBusy(true);
-    try { await action(); await refresh(); } catch (error) { toast.error(errorMessage(error)); await refresh(); } finally { setBusy(false); }
+    try { await action(); await refresh(); }
+    catch (e) { toast.error(errorMessage(e)); }
+    finally { setBusy(false); }
   }
-  const matching = (draft: CargoDraft) => loads.find((l) => cargoIdentity(l) === cargoIdentity(draft));
-  const selectedDrafts = drafts.filter((d) => d.selected);
-  const duplicateKeys = selectedDrafts.some((d,i) => selectedDrafts.some((other,j) => i!==j && cargoIdentity(d) === cargoIdentity(other)));
-  const canImport = !!household && selectedDrafts.length > 0 && !duplicateKeys && selectedDrafts.every((d) => !validateDraft(d).length && d.reviewed) && (!unparsed.length || ack);
-  async function saveDrafts(items: CargoDraft[]) {
-    const payload = items.map((d) => {
-      const existing = matching(d);
-      return { ...Object.fromEntries(cargoFields.map(([key]) => [key,key === 'pallets' ? d.pallets ? numberValue(d.pallets) : null : d[key].trim()])), products:d.products.map((p) => ({...p,boxes:numberValue(p.boxes)})),confirm_update:!!existing,expected_updated_at:existing?.updated_at ?? null };
-    });
-    const { error } = await supabase.rpc('import_cargo_loads',{_loads:payload as Json});
-    if (error) throw error;
-  }
-  async function pasteLoads(value: string) {
-    if (busy || !household || !value.trim()) return;
-    setText(value); setAck(false);
-    const result = quickCargoImport(value,loads);
-    setDrafts(result.review); setUnparsed(result.unparsed);
-    if (!result.ready.length && !result.review.length && !result.unchanged) { toast.error('Não identifiquei as cargas. Confira se as linhas completas foram copiadas.'); return; }
-    if (result.ready.length) await run(async () => {
-      try { await saveDrafts(result.ready); }
-      catch (error) { setDrafts([...result.ready,...result.review]); throw error; }
-      setPeriod('today'); setFilters(emptyFilters);
-      if (!result.review.length && !result.unparsed.length) { setText(''); setPasteOpen(false); }
-      toast.success(`${result.ready.length} cargas adicionadas.`);
-    });
-    else if (result.unchanged && !result.review.length) { setText(''); setPasteOpen(false); toast.success('Essas cargas já estão na lista.'); }
-  }
-  async function importLoads() {
-    if (!canImport) return;
+
+  async function saveStages(load: CargoLoad, patch: Record<string, unknown>, note: string) {
     await run(async () => {
-      await saveDrafts(selectedDrafts);
-      setDrafts([]); setUnparsed([]); setText(''); setPasteOpen(false); toast.success('Cargas importadas.');
+      const { error } = await supabase.rpc("update_cargo_load", {
+        _id: load.id,
+        _patch: patch as never,
+        _note: note,
+        _expected_updated_at: load.updated_at,
+      } as never);
+      if (error) throw error;
+      toast.success("Etapas atualizadas");
     });
   }
-  const visible = filterCargos(loads.filter(l=>cargoPeriod(l,new Date(today+'T12:00:00Z'))===period),filters).sort((a,b) => {
-    const value = (l: CargoLoad) => sort === 'load_number' ? l.load_number : sort === 'destination_name' ? l.destination_name ?? '' : sort === 'status' ? stageLabel('operational_status',l.operational_status) : l.scheduled_date;
-    return value(a).localeCompare(value(b),'pt-BR',{numeric:true});
+
+  const today = cargoDay();
+  const todayLoads = loads.filter((l) => l.scheduled_date === today);
+  const activeLoads = todayLoads.length ? todayLoads : loads;
+
+  const byBucket = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const match = (l: CargoLoad) =>
+      !term ||
+      [l.load_number, l.destination_name, l.carrier, l.plate, l.driver_dt]
+        .some((v) => String(v ?? "").toLowerCase().includes(term));
+    const groups: Record<Bucket, CargoLoad[]> = { pending: [], printed: [], error: [], done: [] };
+    for (const l of activeLoads) if (match(l)) groups[bucketOf(l)].push(l);
+    for (const k of Object.keys(groups) as Bucket[])
+      groups[k].sort((a, b) =>
+        (a.load_number ?? "").localeCompare(b.load_number ?? "", "pt-BR", { numeric: true }));
+    return groups;
+  }, [activeLoads, search]);
+
+  const current = loads.find((l) => l.id === selected) ?? null;
+  const workCount = byBucket.pending.length + byBucket.printed.length + byBucket.error.length;
+
+  return (
+    <div className="space-y-4">
+      {/* Cabeçalho */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Truck className="h-5 w-5 text-primary" />
+          <h2 className="text-xl">Controle de Cargas</h2>
+          {workCount > 0 && <Pill tone="warning">{workCount} em aberto</Pill>}
+        </div>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={() => setDayOpen(true)}>
+            <FileText className="h-4 w-4" /> Cargas do dia
+          </Button>
+          <Button size="sm" variant="soft" onClick={() => setPasteOpen(true)}>
+            <Plus className="h-4 w-4" /> Importar
+          </Button>
+        </div>
+      </div>
+
+      {/* Tela dividida */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* ESQUERDA — a fila */}
+        <section className="space-y-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <input
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar carga, destino, placa ou DT"
+              className="h-11 w-full rounded-xl border border-border bg-card pl-9 pr-3 text-sm outline-none focus:border-primary"
+            />
+          </div>
+
+          {activeLoads.length === 0 && (
+            <EmptyState>Nenhuma carga importada ainda.</EmptyState>
+          )}
+
+          {BUCKETS.map(({ key, label, tone }) => {
+            const items = byBucket[key];
+            if (!items.length) return null;
+            return (
+              <div key={key} className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">{label}</h3>
+                  <Pill tone={tone as never}>{items.length}</Pill>
+                </div>
+                {items.map((l) => (
+                  <button
+                    key={l.id}
+                    onClick={() => setSelected(l.id)}
+                    className={`w-full rounded-2xl border p-3 text-left transition-all ${
+                      selected === l.id
+                        ? "border-primary bg-primary-soft"
+                        : "border-border bg-card hover:border-primary/40"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold">Carga {l.load_number}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {l.driver_dt ?? "—"}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {l.destination_name ?? "Destino não informado"} · {l.carrier ?? "sem transportadora"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {l.plate ?? "sem placa"} · {l.pallets ?? "—"} pallets · {l.cargo_products.length} produtos
+                    </p>
+                  </button>
+                ))}
+              </div>
+            );
+          })}
+        </section>
+
+        {/* DIREITA — o espelho */}
+        <section>
+          {!current ? (
+            <EmptyState>Toque em uma carga para abrir o espelho.</EmptyState>
+          ) : (
+            <div className="space-y-4 rounded-2xl border border-border bg-card p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-lg">Espelho · Carga {current.load_number}</h3>
+                  <p className="text-xs text-muted-foreground">
+                    DT {current.driver_dt ?? "—"} · {current.carrier ?? "sem transportadora"} ·{" "}
+                    {current.destination_name ?? "sem destino"}
+                  </p>
+                </div>
+                <Button size="icon" variant="ghost" onClick={() => setSelected(null)} aria-label="Fechar espelho">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+
+              {/* Ações no topo */}
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => saveStages(current, { print_status: "manual" }, "Marcada como impressa")}
+                >
+                  <Printer className="h-4 w-4" /> Marcar impressa
+                </Button>
+                <Button
+                  size="sm" variant="outline" disabled={busy}
+                  onClick={() => saveStages(current, {}, "Consulta — CTe ainda não recebido")}
+                >
+                  <AlertTriangle className="h-4 w-4" /> Nota com erro
+                </Button>
+                <Button
+                  size="sm" variant="outline" disabled={busy}
+                  onClick={() => saveStages(current, billingCompletionPatch(current), "Faturamento concluído")}
+                >
+                  <Check className="h-4 w-4" /> Finalizar
+                </Button>
+              </div>
+
+              {/* Dados gerais */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold">Dados gerais</h4>
+                  <Button size="icon" variant="ghost" aria-label="Editar dados gerais"
+                    onClick={() => setSelected(current.id)}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+                <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  {cargoFields.map(([key, label]) => (
+                    <div key={key}>
+                      <dt className="text-[11px] uppercase text-muted-foreground">{label}</dt>
+                      <dd>{String(current[key as keyof CargoLoad] ?? "—") || "—"}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+
+              {/* Produtos */}
+              <div>
+                <h4 className="text-sm font-semibold">Produtos da carga</h4>
+                <table className="mt-2 w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase text-muted-foreground">
+                      <th className="pb-1">Código</th>
+                      <th className="pb-1">Descrição</th>
+                      <th className="pb-1 text-right">Caixas</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {current.cargo_products.map((p) => (
+                      <tr key={p.id} className="border-t border-border">
+                        <td className="py-1.5">{p.product_code}</td>
+                        <td className="py-1.5">{p.description}</td>
+                        <td className="py-1.5 text-right">{Number(p.boxes).toLocaleString("pt-BR")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Total: {current.cargo_products.reduce((s, p) => s + Number(p.boxes), 0).toLocaleString("pt-BR")} caixas
+                  · {current.pallets ?? "—"} pallets
+                </p>
+              </div>
+
+              {/* Acompanhamento */}
+              <div className="grid grid-cols-2 gap-2">
+                {(["billing_status", "cte_status", "print_status", "operational_status"] as Stage[]).map((key) => (
+                  <Field key={key} label={stages[key].label}>
+                    <select
+                      value={String(current[key] ?? "")}
+                      disabled={busy}
+                      onChange={(e) => saveStages(current, { [key]: e.target.value }, "Etapa alterada")}
+                      className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+                    >
+                      {stages[key].options.map(([value, text]) => (
+                        <option key={value} value={value}>{text}</option>
+                      ))}
+                    </select>
+                  </Field>
+                ))}
+              </div>
+
+              <Button size="sm" variant="ghost" onClick={() => setHistoryOpen(true)}>
+                <ChevronDown className="h-4 w-4" /> Histórico de movimentações
+              </Button>
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Cargas do dia / histórico */}
+      <Modal open={dayOpen} onClose={() => setDayOpen(false)} title="Cargas do dia">
+        <DayList loads={loads} onPick={(id) => { setSelected(id); setDayOpen(false); }} />
+      </Modal>
+
+      {/* Importar */}
+      <Modal open={pasteOpen} onClose={() => setPasteOpen(false)} title="Importar cargas">
+        <PasteCargo busy={busy} onSubmit={async (value) => {
+          await run(async () => {
+            const loads = quickCargoImport(value);
+            if (!loads.length) throw new Error("Nenhuma carga reconhecida no texto colado.");
+            const payload = loads.map((d) => ({
+              ...d,
+              products: d.products.map((p) => ({ ...p, boxes: numberValue(p.boxes) })),
+              confirm_update: false,
+              expected_updated_at: null,
+            }));
+            const { error } = await supabase.rpc("import_cargo_loads", { _loads: payload });
+            if (error) throw error;
+            toast.success("Cargas importadas");
+            setPasteOpen(false);
+          });
+        }} />
+      </Modal>
+
+      {/* Histórico */}
+      <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title="Histórico de movimentações">
+        {current && <HistoryList load={current} />}
+      </Modal>
+    </div>
+  );
+}
+
+/* ---------- Cargas do dia ---------- */
+
+function DayList({ loads, onPick }: { loads: CargoLoad[]; onPick: (id: string) => void }) {
+  const [day, setDay] = useState(cargoDay());
+  const days = useMemo(
+    () => Array.from(new Set(loads.map((l) => l.scheduled_date))).sort().reverse().slice(0, 31),
+    [loads],
+  );
+  const items = loads.filter((l) => l.scheduled_date === day);
+
+  return (
+    <div className="space-y-3">
+      <Field label="Dia">
+        <select
+          value={day} onChange={(e) => setDay(e.target.value)}
+          className="h-11 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none focus:border-primary"
+        >
+          {days.map((d) => (
+            <option key={d} value={d}>
+              {dateLabel(d)}{d === cargoDay() ? " · hoje" : ""}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      {items.length === 0 && <EmptyState>Nenhuma carga nesse dia.</EmptyState>}
+      {items.map((l) => (
+        <button
+          key={l.id} onClick={() => onPick(l.id)}
+          className="w-full rounded-xl border border-border bg-card p-3 text-left hover:border-primary/40"
+        >
+          <span className="font-semibold">Carga {l.load_number}</span>
+          <p className="text-xs text-muted-foreground">
+            {l.destination_name ?? "sem destino"} · {l.carrier ?? "sem transportadora"} ·{" "}
+            {l.cargo_products.reduce((s, p) => s + Number(p.boxes), 0).toLocaleString("pt-BR")} caixas
+          </p>
+        </button>
+      ))}
+
+      <Button
+        variant="outline" size="sm"
+        onClick={() => {
+          const csv = cargoCsv(items, true);
+          const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+          const a = document.createElement("a");
+          a.href = url; a.download = `cargas-${day}.csv`; a.click();
+          URL.revokeObjectURL(url);
+        }}
+      >
+        <Download className="h-4 w-4" /> Baixar CSV do dia
+      </Button>
+    </div>
+  );
+}
+
+/* ---------- Histórico ---------- */
+
+function HistoryList({ load }: { load: CargoLoad }) {
+  const { data: history = [], isError } = useQuery({
+    queryKey: ["cargo_history", load.household_id, load.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cargo_history").select("*")
+        .eq("household_id", load.household_id).eq("load_id", load.id)
+        .order("changed_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as CargoHistory[];
+    },
   });
-  function exportCsv(detailed: boolean) {
-    const url = URL.createObjectURL(new Blob([cargoCsv(visible,detailed)],{type:'text/csv;charset=utf-8;'}));
-    const anchor = document.createElement('a'); anchor.href=url; anchor.download=`cargas-${detailed?'detalhadas':'resumo'}.csv`; anchor.click(); URL.revokeObjectURL(url);
-  }
-  const selectedLoad = loads.find((l) => l.id === selected);
-  function openLoad(id: string | null) { setSelected(id); window.scrollTo({top:0}); }
-  if (selectedLoad) return <><div className="sticky top-16 z-20 border-b border-border bg-background py-2"><select className="field" aria-label="Trocar carga" value={selectedLoad.id} onChange={e=>openLoad(e.target.value)}>{(visible.some(l=>l.id===selectedLoad.id)?visible:[selectedLoad,...visible]).map(l=><option key={l.id} value={l.id}>Carga {l.load_number} · {l.destination_name} · DT {l.driver_dt}</option>)}</select></div><CargoDetails key={selectedLoad.id} load={selectedLoad} busy={busy} onBack={() => openLoad(null)} onSave={(patch,note) => run(async () => {
-    const {error} = await supabase.rpc('update_cargo_load',{_id:selectedLoad.id,_patch:patch as Json,_expected_updated_at:selectedLoad.updated_at,_note:note});
-    if (error) throw error;
-    toast.success('Carga atualizada.');
-  })} /></>;
-  return <div className="space-y-5">
-    <div className="flex items-center gap-2"><Truck className="h-6 w-6 text-primary" /><h2 className="text-xl">Controle de Cargas</h2></div>
-    <div className="flex gap-2"><Button size="sm" variant={period==='today'?'primary':'outline'} onClick={()=>{setPeriod('today');setFilters(emptyFilters);}}>Cargas de hoje</Button><Button size="sm" variant={period==='history'?'primary':'outline'} onClick={()=>{setPeriod('history');setFilters(emptyFilters);}}>Histórico · 30 dias</Button></div>
-    {period==='today' && <section className="space-y-3">
-      {!!loads.length && !pasteOpen && !drafts.length && !text && <Button size="sm" variant="outline" onClick={()=>setPasteOpen(true)}><Plus className="h-4 w-4" />Colar novas cargas</Button>}
-      {(!loads.length || pasteOpen || !!drafts.length || !!text) && <>
-      <Field label="Cole aqui os dados da planilha ou e-mail"><textarea className="field min-h-20 resize-y" disabled={busy} value={text} onPaste={e=>{e.preventDefault();const target=e.currentTarget;const value=target.value.slice(0,target.selectionStart)+e.clipboardData.getData('text')+target.value.slice(target.selectionEnd);void pasteLoads(value);}} onChange={(e) => {setText(e.target.value);setDrafts([]);setUnparsed([]);setAck(false);}} /></Field>
-      <div className="flex flex-wrap gap-2">
-        {busy ? <span className="flex items-center gap-2 text-sm text-muted-foreground"><Spinner />Salvando cargas...</span> : !drafts.length && !!text.trim() && <Button size="sm" onClick={()=>void pasteLoads(text)}><Plus className="h-4 w-4" />Adicionar cargas</Button>}
-        {!!drafts.length && <Button size="sm" variant="outline" disabled={!canImport || busy} onClick={() => void importLoads()}><Check className="h-4 w-4" />Salvar cargas revisadas</Button>}
-        <Button size="sm" variant="ghost" disabled={busy} onClick={() => {setText('');setDrafts([]);setUnparsed([]);setAck(false);}}><X className="h-4 w-4" />Limpar texto</Button>
-      </div>
-      {!!unparsed.length && <details className="border-l-2 border-warning pl-3 text-sm"><summary className="cursor-pointer text-warning-foreground">{unparsed.length} linhas não interpretadas</summary><pre className="my-2 max-h-48 overflow-auto whitespace-pre-wrap break-words text-xs">{unparsed.join('\n')}</pre>{!!drafts.length && <label className="flex items-start gap-2"><input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} />Conferi as linhas não interpretadas e confirmo que não faltam produtos na prévia.</label>}</details>}
-      {duplicateKeys && <p className="text-sm text-destructive">Existem duas cargas selecionadas com o mesmo DT ou identificação. Corrija a prévia.</p>}
-      {drafts.map((draft,i) => <CargoPreview key={i} draft={draft} existing={matching(draft)} onChange={(next) => setDrafts((old) => old.map((d,index) => index === i ? {...next,reviewed:false} : d))} onReview={(reviewed) => setDrafts((old) => old.map((d,index) => index === i ? {...d,reviewed} : d))} />)}
-      </>}
-    </section>}
-    <section className="space-y-3 border-t border-border pt-5">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg">{period==='today'?'Cargas de hoje':'Histórico temporário'}</h3><div className="flex gap-2"><Button size="icon" variant="outline" title="Exportar resumo CSV" aria-label="Exportar resumo CSV" disabled={!visible.length} onClick={() => exportCsv(false)}><Download className="h-4 w-4" /></Button><Button size="icon" variant="outline" title="Exportar produtos CSV" aria-label="Exportar produtos CSV" disabled={!visible.length} onClick={() => exportCsv(true)}><FileText className="h-4 w-4" /></Button></div></div>
-      <details><summary className="cursor-pointer text-sm text-muted-foreground">Resumo · {visible.length} cargas</summary><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">{cargoSummary(visible).map(([label,count]) => <div key={label} className="border-l-2 border-primary pl-3 py-1"><p className="text-2xl font-semibold tabular-nums">{count}</p><p className="text-xs text-muted-foreground">{label}</p></div>)}</div></details>
-      <div className="grid grid-cols-[1fr_auto] gap-2"><input className="field min-w-0" aria-label="Busca por número da carga" placeholder="Número da carga" value={filters.search} onChange={(e) => setFilters({...filters,search:e.target.value})} /><Button size="icon" variant="outline" title="Filtros" aria-label="Filtros" onClick={() => setExpandedFilters(!expandedFilters)}><Filter className="h-4 w-4" /></Button></div>
-      {expandedFilters && <div className="grid grid-cols-2 gap-3">
-        <Field label="Data prevista"><input className="field" type="date" value={filters.date} onChange={(e) => setFilters({...filters,date:e.target.value})} /></Field>
-        {([['destination','Destino'],['center','Centro'],['carrier','Transportadora'],['plate','Placa'],['dt','DT']] as const).map(([key,label]) => <Field key={key} label={label}><input className="field" value={filters[key]} onChange={(e) => setFilters({...filters,[key]:e.target.value})} /></Field>)}
-        <Field label="Status"><select className="field" value={filters.status} onChange={(e) => setFilters({...filters,status:e.target.value})}><option value="">Todos</option>{Object.entries(stages).map(([key,s]) => <optgroup key={key} label={s.label}>{s.options.map(([value,label]) => <option key={value} value={`${key}:${value}`}>{label}</option>)}</optgroup>)}</select></Field>
-        <Button size="sm" variant="ghost" onClick={() => setFilters(emptyFilters)}>Limpar filtros</Button>
-      </div>}
-      <div className="flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={filters.pending} onChange={(e) => setFilters({...filters,pending:e.target.checked})} />Somente pendentes</label><select className="field max-w-44" aria-label="Ordenar cargas" value={sort} onChange={(e) => setSort(e.target.value)}><option value="scheduled_date">Data prevista</option><option value="load_number">Número da carga</option><option value="destination_name">Destino</option><option value="status">Status</option></select></div>
-      {!visible.length && <EmptyState>{loads.length ? 'Nenhuma carga corresponde aos filtros.' : 'Nenhuma carga cadastrada.'}</EmptyState>}
-      {visible.map((load) => <Button key={load.id} variant="outline" aria-label={`Abrir carga ${load.load_number}`} onClick={()=>openLoad(load.id)} className="h-auto w-full flex-col items-stretch gap-2 whitespace-normal p-3 text-left font-normal">
-        <div className="flex items-start justify-between gap-2"><div className="min-w-0"><h4 className="break-words font-semibold text-lg">Carga {load.load_number}</h4><p className="text-sm text-muted-foreground">{dateLabel(load.scheduled_date)} · {load.destination_name ?? 'Destino não informado'}</p></div><ChevronDown className="h-4 w-4 shrink-0" /></div>
-        <p className="text-xs text-muted-foreground">DT {load.driver_dt??'—'} · {load.carrier ?? 'Transportadora não informada'} · {load.plate ?? 'Sem placa'} · {load.pallets ?? '—'} pallets · {load.cargo_products.length} produtos</p>
-        <div className="flex flex-wrap gap-1.5">{(Object.keys(stages) as Stage[]).map((key) => <Pill key={key} tone={['issued','automatic','manual','finished'].includes(load[key])?'success':'muted'}>{stageLabel(key,load[key])}</Pill>)}</div>
-        {load.billing_issue!=='none' && <Pill tone="accent">{cargoIssueOptions.find(([v])=>v===load.billing_issue)?.[1]}</Pill>}
-        {load.operational_status==='finished' && <p className="text-sm font-semibold">{load.departure_confirmed?'Finalizada com saída':'Finalizada sem saída'}</p>}
-        {!!load.notes && <p className="whitespace-pre-wrap break-words text-sm">{load.notes}</p>}
-      </Button>)}
-    </section>
-  </div>;
+
+  if (isError) return <EmptyState>Não foi possível carregar o histórico.</EmptyState>;
+  if (!history.length) return <EmptyState>Sem movimentações registradas.</EmptyState>;
+
+  return (
+    <div className="space-y-2">
+      {history.map((h) => (
+        <div key={h.id} className="rounded-xl border-l-2 border-primary bg-secondary/40 p-2 text-sm">
+          <p className="font-semibold">
+            {h.field in stages ? stageLabel(h.field as Stage, String(h.value ?? "")) : h.field}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {timeLabel(h.changed_at)}{h.note ? ` · ${h.note}` : ""}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
 }
-function CargoPreview({draft,existing,onChange,onReview}: {draft:CargoDraft;existing?:CargoLoad;onChange:(d:CargoDraft)=>void;onReview:(v:boolean)=>void}) {
-  const errors=validateDraft(draft);
-  const differences=existing?cargoDifferences(draft,existing):[];
-  return <article className="surface p-3 space-y-3">
-    <label className="flex gap-2 items-center font-semibold"><input type="checkbox" checked={draft.selected} onChange={(e) => onChange({...draft,selected:e.target.checked})} />Carga {draft.load_number || 'não identificada'} {existing && <Pill tone="accent">Já cadastrada</Pill>}</label>
-    <details><summary className="cursor-pointer text-sm">{draft.destination_name} · DT {draft.driver_dt||'—'} · {draft.products.length} produtos · {draft.pallets||'—'} pallets</summary><div className="mt-3 grid grid-cols-2 gap-2">{cargoFields.map(([key,label]) => <Field key={key} label={label}><input className={`field ${!draft[key]&&key!=='notes'?'border-warning':''}`} type={key==='scheduled_date'?'date':'text'} value={draft[key]} onChange={(e) => onChange({...draft,[key]:e.target.value})} /></Field>)}</div>
-    <div className="space-y-2">{draft.products.map((p,i) => <div key={i} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2 border-b border-border pb-2"><Field label="Código"><input className="field" value={p.product_code} onChange={(e) => onChange({...draft,products:draft.products.map((v,index) => index===i?{...v,product_code:e.target.value}:v)})} /></Field><Field label="Caixas"><input className="field" inputMode="decimal" value={p.boxes} onChange={(e) => onChange({...draft,products:draft.products.map((v,index) => index===i?{...v,boxes:e.target.value}:v)})} /></Field><Button variant="ghost" size="icon" title="Remover produto da prévia" aria-label={`Remover produto ${i+1}`} onClick={() => onChange({...draft,products:draft.products.filter((_,index) => index!==i)})}><Trash2 className="h-4 w-4" /></Button><div className="col-span-3"><Field label="Descrição"><input className="field" value={p.description} onChange={(e) => onChange({...draft,products:draft.products.map((v,index) => index===i?{...v,description:e.target.value}:v)})} /></Field>{Object.entries(p.extra_fields).map(([key,value]) => <Field key={key} label={key}><input className="field" value={value} onChange={(e) => onChange({...draft,products:draft.products.map((v,index) => index===i?{...v,extra_fields:{...v.extra_fields,[key]:e.target.value}}:v)})} /></Field>)}</div></div>)}</div>
-    <Button size="sm" variant="ghost" onClick={() => onChange({...draft,products:[...draft.products,{product_code:'',description:'',boxes:'',extra_fields:{}}]})}><Plus className="h-4 w-4" />Adicionar produto à prévia</Button></details>
-    {(draft.warnings.length>0 || errors.length>0) && <ul className="space-y-1 text-xs text-destructive">{[...draft.warnings,...errors].map((w,i) => <li key={i}>{w}</li>)}</ul>}
-    {existing && <div className="text-sm space-y-1"><p className="font-semibold">Diferenças da importação</p>{differences.length?differences.map((d,i) => <p key={i} className="break-words text-muted-foreground">{d}</p>):<p className="text-muted-foreground">Nenhuma diferença identificada.</p>}</div>}
-    <label className="flex items-start gap-2 text-sm"><input type="checkbox" checked={draft.reviewed} onChange={(e) => onReview(e.target.checked)} />{existing?'Conferi as diferenças e autorizo atualizar os dados e produtos importados, preservando as etapas e o histórico.':'Conferi os dados, as quantidades e os campos não identificados.'}</label>
-  </article>;
-}
-function CargoDetails({load,busy,onBack,onSave}:{load:CargoLoad;busy:boolean;onBack:()=>void;onSave:(patch:Record<string,unknown>,note:string)=>Promise<void>}) {
-  const [edit,setEdit]=useState(false);
-  const [general,setGeneral]=useState<Record<string,string>>({});
-  const [patch,setPatch]=useState<Record<string,string>>({});
-  const [note,setNote]=useState('');
-  const [observations,setObservations]=useState(load.notes);
-  const {data:history=[],isError} = useQuery({queryKey:['cargo_history',load.household_id,load.id],queryFn:async () => {const {data,error}=await supabase.from('cargo_history').select('*').eq('household_id',load.household_id).eq('load_id',load.id).order('changed_at',{ascending:false});if(error) throw error;return (data??[]) as CargoHistory[];}});
-  useEffect(() => {setPatch({});setObservations(load.notes);setGeneral(Object.fromEntries(cargoFields.map(([key]) => [key,String(load[key]??'')])));},[load]);
-  function historyValue(field:string,value:Json|null) {
-    if(value===null) return '—';
-    if(field in stages && typeof value==='string') return stageLabel(field as Stage,value);
-    if(field.startsWith('product:') && typeof value==='object' && !Array.isArray(value)) return `${value.product_code ?? ''} · ${value.description ?? ''} · ${value.boxes ?? ''} caixas`;
-    return typeof value === 'object' ? 'Carga importada' : String(value);
-  }
-  return <div className="space-y-5">
-    <div className="flex items-center gap-2"><Button size="icon" variant="outline" title="Voltar às cargas" aria-label="Voltar às cargas" onClick={onBack}><ArrowLeft className="h-4 w-4" /></Button><div><h2 className="text-xl break-words">Espelho · Carga {load.load_number}</h2><p className="text-sm text-muted-foreground">DT {load.driver_dt??'—'} · {load.destination_name}</p></div></div>
-    <section className="space-y-3">
-      <div className="flex flex-wrap gap-2"><Pill tone={load.billing_status==='issued'?'success':'muted'}>{stageLabel('billing_status',load.billing_status)}</Pill>{load.billing_issue!=='none' && <Pill tone="accent">{cargoIssueOptions.find(([v])=>v===load.billing_issue)?.[1]}</Pill>}</div>
-      <div className="flex flex-wrap gap-2">
-        {load.billing_status!=='issued' && load.billing_status!=='cancelled' && <><Button size="sm" disabled={busy} onClick={()=>void onSave({billing_status:'processing',billing_issue:'none'},'Faturamento iniciado')}><FileText className="h-4 w-4" />{load.billing_issue!=='none'?'Retomar faturamento':'Iniciar faturamento'}</Button><Button size="sm" disabled={busy} onClick={()=>{if(window.confirm(`Finalizar faturamento e marcar a nota da carga ${load.load_number} como emitida?`)) void onSave(billingCompletionPatch(),'Faturamento finalizado: nota emitida');}}><Check className="h-4 w-4" />Finalizar faturamento</Button></>}
+
+/* ---------- Importação ---------- */
+
+function PasteCargo({ busy, onSubmit }: { busy: boolean; onSubmit: (v: string) => Promise<void> }) {
+  const [text, setText] = useState("");
+  return (
+    <div className="space-y-3">
+      <Field label="Cole aqui os dados da planilha ou e-mail">
+        <textarea
+          value={text} onChange={(e) => setText(e.target.value)} rows={8}
+          className="w-full rounded-xl border border-border bg-card p-3 text-sm outline-none focus:border-primary"
+        />
+      </Field>
+      <div className="flex gap-2">
+        <Button disabled={busy || !text.trim()} onClick={() => void onSubmit(text)}>
+          {busy ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />} Importar
+        </Button>
+        <Button variant="ghost" onClick={() => setText("")}>
+          <Trash2 className="h-4 w-4" /> Limpar
+        </Button>
       </div>
-      <Field label="Observações da carga"><textarea className="field min-h-24" value={observations} onChange={e=>setObservations(e.target.value)} /></Field><Button size="sm" variant="outline" disabled={busy||observations===load.notes} onClick={()=>void onSave({notes:observations},'Observações do espelho atualizadas')}>Salvar observações</Button>
-    </section>
-    <section className="space-y-3"><div className="flex items-center justify-between"><h3 className="text-lg">Dados gerais</h3><Button size="icon" variant="ghost" title="Editar dados gerais" aria-label="Editar dados gerais" onClick={() => setEdit(!edit)}><Pencil className="h-4 w-4" /></Button></div><div className="grid grid-cols-2 gap-3">{cargoFields.map(([key,label]) => edit?<Field key={key} label={label}><input className="field" type={key==='scheduled_date'?'date':'text'} value={general[key]??''} onChange={(e) => setGeneral({...general,[key]:e.target.value})} /></Field>:<div key={key} className="min-w-0"><p className="text-xs text-muted-foreground">{label}</p><p className="break-words text-sm font-medium">{key==='scheduled_date'?dateLabel(load.scheduled_date):load[key]??'—'}</p></div>)}</div>{edit && <Button size="sm" disabled={busy} onClick={() => {if(!general.load_number?.trim() || !general.scheduled_date || (general.pallets && numberValue(general.pallets)===null)) return toast.error('Confira data, carga e pallets.');void onSave({...general,pallets:general.pallets?numberValue(general.pallets):null},note);}}><Check className="h-4 w-4" />Salvar dados</Button>}<p className="text-xs text-muted-foreground">Importada em {timeLabel(load.imported_at)} · Atualizada em {timeLabel(load.updated_at)}</p></section>
-    <section className="space-y-3 border-t border-border pt-4"><h3 className="text-lg">Produtos da carga</h3><div className="overflow-x-auto"><table className="w-full text-sm"><thead className="text-left text-xs text-muted-foreground"><tr><th className="py-2 pr-3">Código</th><th className="pr-3">Descrição</th><th className="text-right">Caixas</th></tr></thead><tbody>{load.cargo_products.map((p) => <tr key={p.id} className="border-t border-border"><td className="py-2 pr-3 align-top">{p.product_code}</td><td className="py-2 pr-3"><p className="break-words">{p.description}</p>{p.extra_fields && typeof p.extra_fields==='object' && !Array.isArray(p.extra_fields) && Object.entries(p.extra_fields).map(([k,v]) => <p key={k} className="text-xs text-muted-foreground">{k}: {String(v)}</p>)}</td><td className="text-right align-top py-2 tabular-nums">{Number(p.boxes).toLocaleString('pt-BR')}</td></tr>)}</tbody></table></div><p className="text-sm font-semibold">Total: {load.cargo_products.reduce((sum,p) => sum+Number(p.boxes),0).toLocaleString('pt-BR')} caixas · {load.pallets??'—'} pallets</p></section>
-    <section className="space-y-3 border-t border-border pt-4"><h3 className="text-lg">Acompanhamento</h3><div className="grid grid-cols-1 gap-3 sm:grid-cols-2">{(Object.keys(stages) as Stage[]).map((key) => <Field key={key} label={stages[key].label}><select className="field" value={patch[key]??load[key]} onChange={(e) => setPatch({...patch,[key]:e.target.value})}>{stages[key].options.map(([v,label]) => <option key={v} value={v}>{label}</option>)}</select></Field>)}</div><Field label="Impedimento no faturamento"><select className="field" value={patch.billing_issue??load.billing_issue} onChange={e=>setPatch({...patch,billing_issue:e.target.value})}>{cargoIssueOptions.map(([v,label])=><option key={v} value={v}>{label}</option>)}</select></Field><Field label="Saída da carga"><select className="field" value={patch.departure_confirmed??String(load.departure_confirmed)} onChange={e=>setPatch({...patch,departure_confirmed:e.target.value})}><option value="false">Sem saída</option><option value="true">Com saída</option></select></Field><div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" disabled={busy} onClick={()=>void onSave({operational_status:'finished',departure_confirmed:false},'Finalizada sem saída')}>Finalizada sem saída</Button><Button size="sm" variant="outline" disabled={busy} onClick={()=>void onSave({operational_status:'finished',departure_confirmed:true},'Finalizada com saída')}>Finalizada com saída</Button><Button size="sm" variant="outline" disabled={busy} onClick={()=>void onSave({print_status:'manual'},'Impressão confirmada; CTe preservado')}>Marcar impressa</Button></div><Field label="Observação da atualização"><textarea className="field" value={note} onChange={(e) => setNote(e.target.value)} /></Field><Button size="sm" disabled={busy || !Object.keys(patch).length} onClick={() => void onSave({...patch,...('departure_confirmed' in patch?{departure_confirmed:patch.departure_confirmed==='true'}:{})},note)}><Check className="h-4 w-4" />Confirmar etapas</Button></section>
-    <section className="space-y-3 border-t border-border pt-4"><h3 className="text-lg">Histórico de movimentações</h3>{isError && <p className="text-sm text-destructive">Não consegui carregar o histórico.</p>}{history.map((h) => <div key={h.id} className="border-l-2 border-primary pl-3"><p className="text-sm font-semibold">{h.field==='import'?'Importação':h.field.startsWith('product:')?'Produto atualizado':h.field in stages?stages[h.field as Stage].label:cargoFields.find(([key]) => key===h.field)?.[1]??h.field}</p><p className="text-xs break-words text-muted-foreground">{historyValue(h.field,h.old_value)} → {historyValue(h.field,h.new_value)}</p><p className="text-xs text-muted-foreground">{timeLabel(h.changed_at)} · {h.user_name}</p>{h.note && <p className="text-xs break-words">{h.note}</p>}</div>)}</section>
-  </div>;
+    </div>
+  );
 }
