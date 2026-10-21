@@ -9,7 +9,7 @@ import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/ki
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  billingCompletionPatch, cargoDay, cargoCsv, cargoFields, cargoIssueOptions,
+  billingCompletionPatch, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
   numberValue, quickCargoImport, stageLabel, stages, validateDraft,
   type CargoDraft, type CargoHistory, type CargoLoad, type Stage,
 } from "@/lib/cargo";
@@ -30,10 +30,8 @@ type Bucket = "pending" | "error" | "printed" | "done";
 
 const isPrinted = (l: CargoLoad) => ["automatic", "manual"].includes(l.print_status);
 const hasCte = (l: CargoLoad) => ["automatic", "manual"].includes(l.cte_status);
-const hasIssue = (l: CargoLoad) =>
-  !!l.billing_issue && l.billing_issue !== "none";
-const isDone = (l: CargoLoad) =>
-  ["finished", "cancelled"].includes(l.operational_status);
+const hasIssue = (l: CargoLoad) => !!l.billing_issue && l.billing_issue !== "none";
+const isDone = (l: CargoLoad) => ["finished", "cancelled"].includes(l.operational_status);
 
 function bucketOf(l: CargoLoad): Bucket {
   if (isDone(l)) return "done";
@@ -49,7 +47,7 @@ const BUCKETS: { key: Bucket; label: string; tone: string }[] = [
   { key: "done", label: "Finalizada", tone: "success" },
 ];
 
-/** Rótulo curto: PLACA - 4 últimos do DT | transportadora */
+/** PLACA - 4 últimos do DT | transportadora */
 function shortLabel(l: CargoLoad) {
   const plate = (l.plate ?? "").trim() || "SEM PLACA";
   const dt = (l.driver_dt ?? "").trim();
@@ -137,7 +135,7 @@ function CargoContent() {
     });
   }
 
-  /* Regra do dia: separa por data real de importação (registered_at) */
+  /* Fila do dia: separa pela data real de importação (registered_at) */
   const today = cargoDay();
   const todayLoads = useMemo(
     () => loads.filter((l) => cargoDay(new Date(l.registered_at)) === today),
@@ -157,7 +155,7 @@ function CargoContent() {
   }, [todayLoads, search]);
 
   const current = loads.find((l) => l.id === selected) ?? null;
-  const open = groups.pending.length + groups.error.length + groups.printed.length;
+  const openCount = groups.pending.length + groups.error.length + groups.printed.length;
 
   return (
     <div className="space-y-4">
@@ -166,7 +164,7 @@ function CargoContent() {
         <div className="flex items-center gap-2">
           <Truck className="h-5 w-5 text-primary" />
           <h2 className="text-xl">Controle de Cargas</h2>
-          {open > 0 && <Pill tone={"warning" as never}>{open} em aberto</Pill>}
+          {openCount > 0 && <Pill tone={"warning" as never}>{openCount} em aberto</Pill>}
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setHistoryOpen(true)}>
@@ -190,9 +188,7 @@ function CargoContent() {
             />
           </div>
 
-          {todayLoads.length === 0 && (
-            <EmptyState>Nenhuma carga importada hoje.</EmptyState>
-          )}
+          {todayLoads.length === 0 && <EmptyState>Nenhuma carga importada hoje.</EmptyState>}
 
           {BUCKETS.map(({ key, label, tone }) => {
             const items = groups[key];
@@ -297,7 +293,7 @@ function CargoContent() {
                 </div>
               </div>
 
-              {/* Demais dados, em linhas curtas */}
+              {/* Demais dados */}
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
                 {cargoFields
                   .filter(([key]) => !["plate", "driver_dt", "carrier", "destination_name"].includes(key))
@@ -313,7 +309,6 @@ function CargoContent() {
                   ))}
               </dl>
 
-              {/* Impedimento */}
               <Field label="Impedimento no faturamento">
                 <select
                   value={current.billing_issue ?? "none"}
@@ -327,7 +322,6 @@ function CargoContent() {
                 </select>
               </Field>
 
-              {/* Etapas */}
               <div className="grid grid-cols-2 gap-2">
                 {(["billing_status", "cte_status", "print_status", "operational_status"] as Stage[]).map((key) => (
                   <Field key={key} label={stages[key].label}>
@@ -345,9 +339,9 @@ function CargoContent() {
                 ))}
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setHistoryOpen(true)}>
-                  <ChevronDown className="h-4 w-4" /> Movimentações desta carga
+                  <ChevronDown className="h-4 w-4" /> Histórico do veículo
                 </Button>
                 <Button size="sm" variant="ghost" disabled={busy}>
                   <Pencil className="h-4 w-4" /> Observações
@@ -358,31 +352,33 @@ function CargoContent() {
         </section>
       </div>
 
+      {/* Importar */}
+      <Modal open={pasteOpen} onClose={() => setPasteOpen(false)} title="Importar cargas">
+        <ImportCargo
+          busy={busy}
+          existing={loads}
+          onImport={async (chosen) => {
+            await run(async () => {
+              const payload = chosen.map((d) => ({
+                ...d,
+                products: d.products.map((p) => ({ ...p, boxes: numberValue(p.boxes) })),
+                confirm_update: !!loads.find(
+                  (l) => (l.plate ?? "") === d.plate && (l.driver_dt ?? "") === (d.driver_dt ?? ""),
+                ),
+                expected_updated_at: null,
+              }));
+              const { error } = await supabase.rpc("import_cargo_loads", { _loads: payload as never });
+              if (error) throw error;
+              toast.success(`${payload.length} carga(s) importada(s)`);
+              setPasteOpen(false);
+            });
+          }}
+        />
+      </Modal>
+
       {/* Histórico por veículo */}
       <Modal open={historyOpen} onClose={() => setHistoryOpen(false)} title="Histórico por veículo">
         <VehicleHistory household={household} current={current} />
-      </Modal>
-
-      {/* Importar */}
-      <Modal open={pasteOpen} onClose={() => setPasteOpen(false)} title="Importar cargas">
-        <PasteCargo busy={busy} onSubmit={async (value) => {
-          await run(async () => {
-            const drafts = quickCargoImport(value, loads);
-            if (!drafts.length) throw new Error("Nenhuma carga reconhecida no texto colado.");
-            const payload = drafts.map((d: CargoDraft) => ({
-              ...d,
-              products: d.products.map((p) => ({ ...p, boxes: numberValue(p.boxes) })),
-              confirm_update: !!loads.find(
-                (l) => (l.plate ?? "") === d.plate && (l.driver_dt ?? "") === (d.driver_dt ?? ""),
-              ),
-              expected_updated_at: null,
-            }));
-            const { error } = await supabase.rpc("import_cargo_loads", { _loads: payload as never });
-            if (error) throw error;
-            toast.success("Cargas importadas");
-            setPasteOpen(false);
-          });
-        }} />
       </Modal>
     </div>
   );
@@ -493,19 +489,87 @@ function VehicleHistory({ household, current }: { household?: string; current: C
 
 /* ---------- Importação ---------- */
 
-function PasteCargo({ busy, onSubmit }: { busy: boolean; onSubmit: (v: string) => Promise<void> }) {
+function ImportCargo({
+  busy, existing, onImport,
+}: {
+  busy: boolean;
+  existing: CargoLoad[];
+  onImport: (chosen: CargoDraft[]) => Promise<void>;
+}) {
   const [text, setText] = useState("");
+  const result = useMemo(
+    () => (text.trim() ? quickCargoImport(text, existing) : null),
+    [text, existing],
+  );
+
+  const ready = result?.ready ?? [];
+  const review = result?.review ?? [];
+  const unparsed = result?.unparsed ?? [];
+  const unchanged = result?.unchanged ?? 0;
+
   return (
     <div className="space-y-3">
       <Field label="Cole aqui os dados da planilha ou e-mail">
         <textarea
-          value={text} onChange={(e) => setText(e.target.value)} rows={8}
+          value={text} onChange={(e) => setText(e.target.value)} rows={7}
           className="w-full rounded-xl border border-border bg-card p-3 text-sm outline-none focus:border-primary"
         />
       </Field>
+
+      {result && (
+        <div className="space-y-2 text-[13px]">
+          <p>
+            <strong>{ready.length}</strong> pronta(s) ·{" "}
+            <strong>{review.length}</strong> para conferir ·{" "}
+            <strong>{unchanged}</strong> sem mudança
+          </p>
+
+          {ready.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-2">
+              <p className="font-semibold">Prontas para importar</p>
+              {ready.map((d, i) => (
+                <p key={`r${i}`} className="truncate text-[12px] text-muted-foreground">
+                  {d.plate || "sem placa"} - {(d.driver_dt ?? "").slice(-4)} | {d.carrier || "sem transp."} ·{" "}
+                  {d.load_number} · {d.destination_name || "sem destino"}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {review.length > 0 && (
+            <div className="rounded-xl border border-warning/40 bg-warning/10 p-2">
+              <p className="font-semibold">Para conferir</p>
+              {review.map((d, i) => (
+                <div key={`v${i}`} className="mt-1">
+                  <p className="truncate text-[12px]">
+                    {d.plate || "sem placa"} - {(d.driver_dt ?? "").slice(-4)} | {d.load_number}
+                  </p>
+                  {d.warnings.map((w, j) => (
+                    <p key={j} className="pl-3 text-[11px] text-muted-foreground">⚠ {w}</p>
+                  ))}
+                  {validateDraft(d).map((e, j) => (
+                    <p key={j} className="pl-3 text-[11px] text-destructive">✕ {e}</p>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {unparsed.length > 0 && (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-2">
+              <p className="font-semibold">{unparsed.length} linha(s) não reconhecida(s)</p>
+              {unparsed.slice(0, 5).map((l, i) => (
+                <p key={i} className="truncate text-[11px] text-muted-foreground">{l}</p>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex gap-2">
-        <Button disabled={busy || !text.trim()} onClick={() => void onSubmit(text)}>
-          {busy ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />} Importar
+        <Button disabled={busy || !ready.length} onClick={() => void onImport([...ready, ...review])}>
+          {busy ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />}
+          Importar {ready.length + review.length || ""}
         </Button>
         <Button variant="ghost" onClick={() => setText("")}>
           <Trash2 className="h-4 w-4" /> Limpar
