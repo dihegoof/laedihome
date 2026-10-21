@@ -179,6 +179,37 @@ function CargoContent() {
     }
   }
 
+    async function deleteLoad(load: CargoLoad) {
+    if (bucketOf(load) !== "pending") return;
+    if (!window.confirm(`Excluir a carga ${shortLabel(load)}? Isso não dá para desfazer.`)) return;
+    if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
+
+    const key = ["cargo_loads", household];
+    setBusy(true);
+    setSelected(null);
+    // some da tela na hora
+    qc.setQueryData<CargoLoad[]>(key, (old) => (old ?? []).filter((l) => l.id !== load.id));
+    try {
+      const { data, error } = await supabase
+        .from("cargo_loads")
+        .delete()
+        .eq("id", load.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("O banco não permitiu excluir essa carga.");
+      }
+      toast.success("Carga excluída");
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      // se falhou, a carga volta para a lista com o valor real do banco
+      await qc.invalidateQueries({ queryKey: key });
+      setBusy(false);
+    }
+  }
+
+
   /* Fila do dia / dia escolhido no histórico */
   const today = cargoDay();
   const activeDay = viewDay ?? today;
@@ -331,9 +362,12 @@ function CargoContent() {
                   <AlertTriangle className="h-4 w-4" /> Erro
                 </Button>
                 <Button size="sm" variant="outline" disabled={busy}
-                  onClick={() => saveStages(current, billingCompletionPatch(), "Faturamento concluído")}>
+                  onClick={() => saveStages(current, { ...billingCompletionPatch(), operational_status: "finished" }, "Carga finalizada", )}
                   <Check className="h-4 w-4" /> Finalizar
                 </Button>
+                {bucketOf(current) === "pending" && (<Button size="sm" variant="dangerGhost" disabled={busy} onClick={() => deleteLoad(current)}>
+                  <Trash2 className="h-4 w-4" /> Excluir
+                </Button> )}
               </div>
 
               {/* Produtos: código, descrição, pallets por produto */}
