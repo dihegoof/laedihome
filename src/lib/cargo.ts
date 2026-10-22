@@ -106,6 +106,31 @@ function fixedRow(line: string): Record<string,string> | null {
   const [,scheduled_date,load_number,origin_center,destination_center,destination_name,product_code,description,boxes,pallets,carrier] = match;
   return {scheduled_date,load_number,origin_center,destination_center,destination_name,product_code,description,boxes:quantity(boxes),pallets:quantity(pallets),carrier,plate:suffix[1].replace(/[- ]/g,'').toUpperCase(),driver_dt:suffix[2]};
 }
+/**
+ * Linhas de continuação: mesma carga, mas a placa e/ou a data vêm vazias
+ * ou como "-" (exportação da planilha). Herda o que faltar da linha anterior.
+ */
+function isContinuation(cells: string[], previous: Record<string, string> | null): boolean {
+  if (!previous?.driver_dt) return false;
+  // o último campo é o DT; se bate com o anterior, é a mesma carga
+  const dt = cells.filter(Boolean).at(-1)?.trim();
+  return !!dt && dt === previous.driver_dt.trim();
+}
+
+function inheritMissing(
+  data: Record<string, string>,
+  previous: Record<string, string> | null,
+): Record<string, string> {
+  if (!previous) return data;
+  const blank = (v?: string) => !v || !v.trim() || v.trim() === "-";
+  const out = { ...data };
+  for (const key of ["scheduled_date", "load_number", "origin_center", "destination_center",
+                     "destination_name", "carrier", "plate", "driver_dt", "pallets"]) {
+    if (blank(out[key]) && !blank(previous[key])) out[key] = previous[key];
+  }
+  return out;
+}
+
 export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: string[] } {
   const lines=text.replace(/\r/g,'').replace(/\u00a0/g,' ').split('\n').filter(v=>v.trim());
   const rows: {data:Record<string,string>; fixed:boolean}[]=[];
@@ -120,6 +145,7 @@ export function parseCargoEmail(text: string): { loads: CargoDraft[]; unparsed: 
     const untitled=!keys.length ? untitledRow(line):null;
     const values=keys.length ? cells.length===keys.length ? cells:spaceRow(line,keys):null;
     const data=fixed ?? untitled ?? (values ? Object.fromEntries(keys.map((k,i)=>[k,values[i]??''])):null);
+    if (data && isContinuation(cells, previous?.data ?? null)) { previous!.data = inheritMissing(data, previous!.data); }
     if (data?.load_number && data.product_code) {previous={data,fixed:!!fixed||!!untitled};rows.push(previous);continue;}
     const continuation=carrierRow(line);
     if (continuation && previous?.fixed && !previous.data.driver_dt) {
