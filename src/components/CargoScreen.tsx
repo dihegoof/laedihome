@@ -533,8 +533,11 @@ function CargoContent() {
 
 /* ---------- Histórico da placa ---------- */
 
+/* ---------- Histórico da placa ---------- */
+
 function VehicleHistory({ plate, loads }: { plate: string; loads: CargoLoad[] }) {
   const key = plate.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+
   const list = useMemo(
     () =>
       loads
@@ -542,22 +545,6 @@ function VehicleHistory({ plate, loads }: { plate: string; loads: CargoLoad[] })
         .sort((a, b) => String(b.registered_at).localeCompare(String(a.registered_at))),
     [loads, key],
   );
-
-  const { data: history = [] } = useQuery({
-    queryKey: ["cargo_history", key],
-    enabled: !!key,
-    queryFn: async () => {
-      const ids = list.map((l) => l.id);
-      if (!ids.length) return [];
-      const { data, error } = await supabase
-        .from("cargo_history")
-        .select("*")
-        .in("load_id", ids)
-        .order("changed_at", { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as CargoHistory[];
-    },
-  });
 
   if (!key) return <EmptyState>Escolha uma carga para ver o histórico da placa.</EmptyState>;
   if (!list.length) return <EmptyState>Nenhuma carga registrada para essa placa.</EmptyState>;
@@ -581,20 +568,6 @@ function VehicleHistory({ plate, loads }: { plate: string; loads: CargoLoad[] })
           </article>
         ))}
       </div>
-
-      {history.length > 0 && (
-        <div>
-          <h4 className="text-[13px] font-semibold">Movimentações</h4>
-          <div className="mt-1 space-y-1">
-            {history.slice(0, 20).map((h) => (
-              <p key={h.id} className="text-[11px] opacity-70">
-                {timeLabel(h.changed_at)} · {h.field}: {stageLabel(h.field as Stage, String(h.value ?? ""))}
-                {h.note ? ` — ${h.note}` : ""}
-              </p>
-            ))}
-          </div>
-        </div>
-      )}
 
       <Button
         variant="outline"
