@@ -309,11 +309,13 @@ function CargoContent() {
   const current = loads.find((l) => l.id === selected) ?? null;
   const visible = [
     ...groups.pending,
+    ...groups.invoiced,
     ...groups.printed,
     ...groups.cut,
     ...(showDone ? groups.done : []),
   ];
-  const openCount = groups.pending.length + groups.printed.length + groups.cut.length;
+  const openCount =
+    groups.pending.length + groups.invoiced.length + groups.printed.length + groups.cut.length;
 
   const isHistory = viewDay !== null;
 
