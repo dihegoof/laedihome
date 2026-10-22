@@ -98,6 +98,28 @@ function shortLabel(l: CargoLoad) {
   return tail ? `${plateLabel(l)} - ${tail} | ${carrier}` : `${plateLabel(l)} | ${carrier}`;
 }
 
+
+/** Há quanto tempo a carga está parada, em texto curto. */
+function elapsed(since: string): string {
+  const ms = Date.now() - new Date(since).getTime();
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `Há ${s} segundo${s === 1 ? "" : "s"}`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `Há ${m} minuto${m === 1 ? "" : "s"}`;
+  const h = Math.floor(m / 60);
+  const rest = m % 60;
+  return rest ? `Há ${h}h ${rest}min` : `Há ${h} hora${h === 1 ? "" : "s"}`;
+}
+
+/** Já passou do tempo de espera? */
+const LATE_MINUTES = 30;
+function isLate(since: string): boolean {
+  return Date.now() - new Date(since).getTime() >= LATE_MINUTES * 60_000;
+}
+
+/** A carga em Faturado, com a hora em que foi faturada (do histórico). */
+type InvoicedLoad = { load: CargoLoad; since: string };
+
 const loadPallets = (l: CargoLoad) =>
   l.cargo_products.reduce((sum, p) => {
     const raw = (p.extra_fields as Record<string, unknown>)?.["Pallets do produto"];
@@ -110,8 +132,32 @@ const productPallets = (p: CargoLoad["cargo_products"][number]) =>
 const byDt = (a: CargoLoad, b: CargoLoad) =>
   String(a.driver_dt ?? "").localeCompare(String(b.driver_dt ?? ""), "pt-BR", { numeric: true });
 
-/* ---------- Tela ---------- */
+/** Faixa do contador no card. Atualiza sozinha a cada 30 segundos. */
+function WaitBadge({ since }: { since: string }) {
+  const [, tick] = useState(0);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => tick((n) => n + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const late = isLate(since);
+
+  return (
+    <span
+      className={`shrink-0 self-start rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+        late
+          ? "bg-destructive text-destructive-foreground"
+          : "bg-background/70 text-muted-foreground"
+      }`}
+      title={`Faturado em ${new Date(since).toLocaleString("pt-BR")}`}
+    >
+      {elapsed(since)}
+    </span>
+  );
+}
+
+/* ---------- Tela ---------- */
 export function CargoScreen() {
   return (
     <Suspense fallback={<EmptyState><Spinner /> Carregando cargas...</EmptyState>}>
@@ -147,6 +193,29 @@ function CargoContent() {
         .order("registered_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as CargoLoad[];
+    },
+  });
+
+   /** Hora do faturamento de cada carga — lê do histórico. */
+  const { data: invoicedAt = {} } = useQuery({
+    queryKey: ["cargo_history_invoiced", household],
+    enabled: !!household,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cargo_history")
+        .select("load_id,changed_at,field,value")
+        .eq("household_id", household!)
+        .order("changed_at", { ascending: false });
+      if (error) throw error;
+
+      const map: Record<string, string> = {};
+      for (const h of data ?? []) {
+        // só os registros de faturamento, e só o mais recente de cada carga
+        if (h.field !== "billing_status" || h.value !== "issued") continue;
+        if (!map[h.load_id]) map[h.load_id] = h.changed_at;
+      }
+      return map;
     },
   });
 
@@ -392,13 +461,16 @@ function CargoContent() {
                     key={l.id}
                     onClick={() => setSelected(l.id)}
                     className={`w-full rounded-xl border px-3 py-2 text-left transition-all ${cardClass(key)} ${
-                      selected === l.id ? "ring-2 ring-primary" : ""
-                    }`}
-                  >
-                    <span className="block truncate text-sm font-semibold">{shortLabel(l)}</span>
-                    <span className="block truncate text-[11px] opacity-70">
-                      {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
-                      {l.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
+                      selected === l.id ? "ring-2 ring-primary" : "" }`}>
+                    <span className="flex items-start justify-between gap-2">
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold">{shortLabel(l)}</span>
+                        <span className="block truncate text-[11px] opacity-70">
+                          {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
+                          {l.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
+                        </span>
+                      </span>
+                      {key === "invoiced" && invoicedAt[l.id] && (<WaitBadge since={invoicedAt[l.id]} /> )}
                     </span>
                   </button>
                 ))}
