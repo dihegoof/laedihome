@@ -179,11 +179,20 @@ function CargoContent() {
     }
   }
 
+
+  async function deleteLoad(load: CargoLoad) {
+    if (bucketOf(load) !== "pending") return;
+    if (!window.confirm(`Remover a carga ${shortLabel(load)} da lista?`)) return;
+    await saveStages(load, { operational_status: "cancelled" }, "Removida da lista");
+    setSelected(null);
+  }
+
     async function deleteLoad(load: CargoLoad) {
     if (bucketOf(load) !== "pending") return;
     if (!window.confirm(`Excluir a carga ${shortLabel(load)}? Isso não dá para desfazer.`)) return;
     if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
 
+    /*
     const key = ["cargo_loads", household];
     setBusy(true);
     setSelected(null);
@@ -208,7 +217,7 @@ function CargoContent() {
       setBusy(false);
     }
   }
-
+  */
 
   /* Fila do dia / dia escolhido no histórico */
   const today = cargoDay();
@@ -364,11 +373,8 @@ function CargoContent() {
                 <Button size="sm" variant="outline" disabled={busy}
                   onClick={() => saveStages(current, { ...billingCompletionPatch(), operational_status: "finished" }, "Carga finalizada")}>
                   <Check className="h-4 w-4" /> Finalizar
-                </Button>
-
-
-                {bucketOf(current) === "pending" && (<Button size="sm" variant="dangerGhost" disabled={busy} onClick={() => deleteLoad(current)}>
-                  <Trash2 className="h-4 w-4" /> Excluir
+                </Button> {bucketOf(current) === "pending" && (<Button size="sm" variant="dangerGhost" disabled={busy} onClick={() => deleteLoad(current)}>
+                  <Trash2 className="h-4 w-4" /> Remover
                 </Button> )}
               </div>
 
