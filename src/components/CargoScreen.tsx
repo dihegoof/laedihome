@@ -197,6 +197,7 @@ function CargoContent() {
   });
 
    /** Hora do faturamento de cada carga — lê do histórico. */
+    /** Hora do faturamento de cada carga — lê do histórico. */
   const { data: invoicedAt = {} } = useQuery({
     queryKey: ["cargo_history_invoiced", household],
     enabled: !!household,
@@ -204,15 +205,15 @@ function CargoContent() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cargo_history")
-        .select("load_id,changed_at,field,value")
+        .select("load_id,changed_at,field,new_value")
         .eq("household_id", household!)
+        .eq("field", "billing_status")
+        .eq("new_value", "issued")
         .order("changed_at", { ascending: false });
       if (error) throw error;
 
       const map: Record<string, string> = {};
       for (const h of data ?? []) {
-        // só os registros de faturamento, e só o mais recente de cada carga
-        if (h.field !== "billing_status" || h.value !== "issued") continue;
         if (!map[h.load_id]) map[h.load_id] = h.changed_at;
       }
       return map;
