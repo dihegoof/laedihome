@@ -208,12 +208,44 @@ function CargoContent() {
     }
   }
 
-  /** Excluir: sai da lista e fecha o card. */
+    /** Excluir: apaga de vez e fecha o card. */
   async function deleteLoad(load: CargoLoad) {
-    if (!window.confirm(`Excluir a carga ${shortLabel(load)} da lista?`)) return;
-    await saveStages(load, { operational_status: "cancelled" }, "Carga excluída da lista");
+    if (!window.confirm(`Excluir a carga ${shortLabel(load)}? Isso não dá para desfazer.`)) return;
+    if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
+
+    const key = ["cargo_loads", household];
+    setBusy(true);
     setSelected(null);
+    // some da tela na hora
+    qc.setQueryData<CargoLoad[]>(key, (old) => (old ?? []).filter((l) => l.id !== load.id));
+    try {
+      // apaga primeiro os produtos, depois a carga
+      const { error: prodError } = await supabase
+        .from("cargo_products")
+        .delete()
+        .eq("load_id", load.id);
+      if (prodError) throw prodError;
+
+      const { data, error } = await supabase
+        .from("cargo_loads")
+        .delete()
+        .eq("id", load.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("O banco não permitiu excluir. Confira a permissão do passo 1.");
+      }
+
+      toast.success("Carga excluída");
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      // se falhou, a carga volta para a lista com o valor real do banco
+      await qc.invalidateQueries({ queryKey: key });
+      setBusy(false);
+    }
   }
+
 
   /** Finalizar: sai das pendências e fecha o card. */
   async function finishLoad(load: CargoLoad) {
