@@ -26,16 +26,19 @@ function errorMessage(error: unknown) {
 
 /* ---------- Grupos e cores ---------- */
 
-type Bucket = "pending" | "printed" | "cut" | "done";
+type Bucket = "pending" | "invoiced" | "printed" | "cut" | "done";
 
 const isPrinted = (l: CargoLoad) => ["automatic", "manual"].includes(l.print_status);
 const isDone = (l: CargoLoad) => l.operational_status === "finished";
 const isCut = (l: CargoLoad) =>
   !!l.billing_issue && l.billing_issue !== "none" && !isDone(l);
 
+const isInvoiced = (l: CargoLoad) => l.billing_status === "issued";
+
 function bucketOf(l: CargoLoad): Bucket {
   if (isDone(l)) return "done";
   if (isCut(l)) return "cut";
+  if (isInvoiced(l)) return "invoiced";
   if (isPrinted(l)) return "printed";
   return "pending";
 }
@@ -47,6 +50,11 @@ const BUCKETS: Record<Bucket, Tone> = {
     label: "Pendente",
     tone: "warning",
     card: "border-border bg-secondary",
+  },
+  invoiced: {
+    label: "Faturado",
+    tone: "accent",
+    card: "border-primary/50 bg-primary-soft",
   },
   printed: {
     label: "Impressa ag. CT-e",
@@ -65,7 +73,7 @@ const BUCKETS: Record<Bucket, Tone> = {
   },
 };
 
-const ORDER: Bucket[] = ["pending", "printed", "cut", "done"];
+const ORDER: Bucket[] = ["pending", "invoiced", "printed", "cut", "done"];
 
 const cardClass = (b: Bucket | null) =>
   b ? BUCKETS[b].card : "border-border bg-card";
@@ -264,6 +272,10 @@ function CargoContent() {
     );
   }
 
+  async function invoiceLoad(load: CargoLoad) {
+    await saveStages(load, billingCompletionPatch(), "Faturado");
+  }
+
   async function copy(value: string, what: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -288,7 +300,7 @@ function CargoContent() {
       !term ||
       [l.load_number, l.destination_name, l.carrier, l.plate, l.driver_dt]
         .some((v) => String(v ?? "").toLowerCase().includes(term));
-    const out: Record<Bucket, CargoLoad[]> = { pending: [], printed: [], cut: [], done: [] };
+    const out: Record<Bucket, CargoLoad[]> = { pending: [], invoiced: [], printed: [], cut: [], done: [] };
     for (const l of dayLoads) if (match(l)) out[bucketOf(l)].push(l);
     for (const k of Object.keys(out) as Bucket[]) out[k].sort(byDt);
     return out;
@@ -415,6 +427,9 @@ function CargoContent() {
                   onClick={() => saveStages(current, { print_status: "manual" }, "Marcada como impressa")}>
                   <Printer className="h-4 w-4" /> Impressa ag. CT-e
                 </Button>
+                <Button size="sm" variant="soft" disabled={busy} onClick={() => invoiceLoad(current)}>
+                  <FileText className="h-4 w-4" /> Faturado
+                </Button>
                 <Button size="sm" variant="dangerGhost" disabled={busy} onClick={() => cutLoad(current)}>
                   <Scissors className="h-4 w-4" /> Corte
                 </Button>
@@ -469,10 +484,11 @@ function CargoContent() {
                   <p className="text-[10px] uppercase opacity-70">Placa</p>
                   <p className="font-semibold underline decoration-dotted">{plateLabel(current)}</p>
                 </button>
-                <div>
+                  <button className="text-left" disabled={busy} title="Clique para copiar o DT" onClick={() => void copy((current.driver_dt ?? "").trim(), "DT")}>
                   <p className="text-[10px] uppercase opacity-70">DT</p>
-                  <p className="font-semibold">{current.driver_dt ?? "—"}</p>
-                </div>
+                  <p className="font-semibold underline decoration-dotted">{current.driver_dt ?? "—"}</p>
+                </button>
+
                 <div>
                   <p className="text-[10px] uppercase opacity-70">Pallets</p>
                   <p className="font-semibold">{loadPallets(current)}</p>
