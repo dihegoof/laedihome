@@ -186,13 +186,14 @@ function CargoContent() {
     await saveStages(load, { operational_status: "cancelled" }, "Removida da lista");
     setSelected(null);
   }
-
+  
+ /*
     async function deleteLoad(load: CargoLoad) {
     if (bucketOf(load) !== "pending") return;
     if (!window.confirm(`Excluir a carga ${shortLabel(load)}? Isso não dá para desfazer.`)) return;
     if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
 
-    /*
+    
     const key = ["cargo_loads", household];
     setBusy(true);
     setSelected(null);
