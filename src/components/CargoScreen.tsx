@@ -33,7 +33,8 @@ const isDone = (l: CargoLoad) => l.operational_status === "finished";
 const isCut = (l: CargoLoad) =>
   !!l.billing_issue && l.billing_issue !== "none" && !isDone(l);
 
-const isInvoiced = (l: CargoLoad) => l.billing_status === "issued";
+/** Faturado: nota emitida, mas o CT-e ainda não foi solicitado nem recebido. */
+const isInvoiced = (l: CargoLoad) => l.billing_status === "issued" && !isPrinted(l);
 
 function bucketOf(l: CargoLoad): Bucket {
   if (isDone(l)) return "done";
