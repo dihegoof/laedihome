@@ -157,6 +157,49 @@ function WaitBadge({ since }: { since: string }) {
   );
 }
 
+/** Bolinha "Solicitar CT-e" — vira contador depois do clique. */
+function CteRequest({
+  load, busy, onRequest,
+}: {
+  load: CargoLoad;
+  busy: boolean;
+  onRequest: () => void;
+}) {
+  const [, tick] = useState(0);
+
+  useEffect(() => {
+    if (!load.cte_requested_at) return;
+    const timer = window.setInterval(() => tick((n) => n + 1), 30_000);
+    return () => window.clearInterval(timer);
+  }, [load.cte_requested_at]);
+
+  if (!load.cte_requested_at) {
+    return (
+      <button
+        type="button"
+        disabled={busy}
+        onClick={onRequest}
+        title="Avisar que o e-mail foi enviado à transportadora"
+        className="rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:border-primary hover:text-primary"
+      >
+        Solicitar CT-e
+      </button>
+    );
+  }
+
+  const late = isLate(load.cte_requested_at);
+  return (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+        late ? "bg-destructive text-destructive-foreground" : "bg-background/70 text-muted-foreground"
+      }`}
+      title={`Solicitado em ${new Date(load.cte_requested_at).toLocaleString("pt-BR")}`}
+    >
+      CT-e {elapsed(load.cte_requested_at)}
+    </span>
+  );
+}
+
 /* ---------- Tela ---------- */
 export function CargoScreen() {
   return (
@@ -349,6 +392,11 @@ function CargoContent() {
     await saveStages(load, billingCompletionPatch(), "Faturado");
   }
 
+  /** Marca que o e-mail foi enviado à transportadora, começando a contar o CT-e. */
+  async function requestCte(load: CargoLoad) {
+    await saveStages(load, { cte_requested_at: new Date().toISOString() }, "CT-e solicitado à transportadora");
+  }
+
   async function copy(value: string, what: string) {
     try {
       await navigator.clipboard.writeText(value);
@@ -473,7 +521,13 @@ function CargoContent() {
                           {l.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
                         </span>
                       </span>
-                      {key === "invoiced" && invoicedAt[l.id] && (<WaitBadge since={invoicedAt[l.id]} /> )}
+                        <span className="flex shrink-0 flex-col items-end gap-1"> {key === "invoiced" && invoicedAt[l.id] && (<WaitBadge since={invoicedAt[l.id]} />)}
+                        {key === "printed" && (
+                          <CteRequest
+                            load={l}
+                            busy={busy}
+                            onRequest={() => void requestCte(l)} />)}
+                      </span>
                     </span>
                   </button>
                 ))}
