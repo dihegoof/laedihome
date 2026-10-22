@@ -1,8 +1,8 @@
 import type { Tables } from "@/integrations/supabase/types";
 
-export type StockUnit = "un" | "g" | "kg" | "ml" | "l";
+export type StockUnit = "un" | "kg" | "l";
 export type MenuPlan = Tables<"menu_plans"> & { menu_ingredients: Tables<"menu_ingredients">[] };
-export const STOCK_UNITS: StockUnit[] = ["un", "g", "kg", "ml", "l"];
+export const STOCK_UNITS: StockUnit[] = ["un", "kg", "l"];
 export const MEAL_TYPES = [
   { value: "breakfast", label: "Café da manhã", time: "07:00" },
   { value: "lunch", label: "Almoço", time: "12:00" },
@@ -21,9 +21,10 @@ export function weekStart(date: string): string {
   const weekday = new Date(`${date}T12:00:00`).getDay();
   return addDays(date, -((weekday + 6) % 7));
 }
+/** Só aceita g/kg e ml/l nas conversões internas; a lista visível é un, kg e l. */
 export function compatibleUnits(unit: string): StockUnit[] {
-  if (unit === "g" || unit === "kg") return ["g", "kg"];
-  if (unit === "ml" || unit === "l") return ["ml", "l"];
+  if (unit === "g" || unit === "kg") return ["kg"];
+  if (unit === "ml" || unit === "l") return ["l"];
   return ["un"];
 }
 export function stockAmount(amount: number, unit: string, stockUnit: string): number {
