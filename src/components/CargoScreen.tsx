@@ -73,7 +73,7 @@ const cardClass = (b: Bucket | null) =>
 /** Placa no formato do cliente: GHE1B55 ED */
 function plateLabel(l: CargoLoad) {
   const raw = (l.plate ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-  return raw ? `${raw} ED` : "SEM PLACA";
+  return raw ? `${raw}  ED` : "SEM PLACA";
 }
 
 /** 4 últimos dígitos do DT */
