@@ -208,7 +208,7 @@ function CargoContent() {
     }
   }
 
-    /** Excluir: apaga de vez e fecha o card. */
+    /** Excluir: apaga histórico, produtos e a carga. */
   async function deleteLoad(load: CargoLoad) {
     if (!window.confirm(`Excluir a carga ${shortLabel(load)}? Isso não dá para desfazer.`)) return;
     if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
@@ -216,15 +216,14 @@ function CargoContent() {
     const key = ["cargo_loads", household];
     setBusy(true);
     setSelected(null);
-    // some da tela na hora
     qc.setQueryData<CargoLoad[]>(key, (old) => (old ?? []).filter((l) => l.id !== load.id));
     try {
-      // apaga primeiro os produtos, depois a carga
-      const { error: prodError } = await supabase
-        .from("cargo_products")
-        .delete()
-        .eq("load_id", load.id);
-      if (prodError) throw prodError;
+      // 1) histórico, 2) produtos, 3) a carga — nesta ordem, por causa das chaves estrangeiras
+      const { error: hErr } = await supabase.from("cargo_history").delete().eq("load_id", load.id);
+      if (hErr) throw hErr;
+
+      const { error: pErr } = await supabase.from("cargo_products").delete().eq("load_id", load.id);
+      if (pErr) throw pErr;
 
       const { data, error } = await supabase
         .from("cargo_loads")
@@ -233,14 +232,13 @@ function CargoContent() {
         .select("id");
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error("O banco não permitiu excluir. Confira a permissão do passo 1.");
+        throw new Error("O banco não permitiu excluir. Confira as permissões do passo 1.");
       }
 
       toast.success("Carga excluída");
     } catch (e) {
       toast.error(errorMessage(e));
     } finally {
-      // se falhou, a carga volta para a lista com o valor real do banco
       await qc.invalidateQueries({ queryKey: key });
       setBusy(false);
     }
@@ -489,7 +487,7 @@ function CargoContent() {
                 </button>
               </div>
 
-              <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+                            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
                 {cargoFields
                   .filter(([key]) => !["plate", "driver_dt", "carrier", "destination_name", "pallets"].includes(key))
                   .map(([key, label]) => (
@@ -503,6 +501,23 @@ function CargoContent() {
                     </div>
                   ))}
               </dl>
+
+              <label className="flex items-center gap-2 text-[13px] font-semibold">
+                <input
+                  type="checkbox"
+                  checked={!!current.departure_confirmed}
+                  disabled={busy}
+                  onChange={(e) =>
+                    saveStages(
+                      current,
+                      { departure_confirmed: e.target.checked },
+                      e.target.checked ? "Com saída" : "Sem saída",
+                    )
+                  }
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                Com saída
+              </label>
 
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setVehicleOpen(true)}>
