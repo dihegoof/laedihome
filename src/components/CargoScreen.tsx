@@ -392,9 +392,35 @@ function CargoContent() {
     await saveStages(load, billingCompletionPatch(), "Faturado");
   }
 
-  /** Marca que o e-mail foi enviado à transportadora, começando a contar o CT-e. */
+    /** Marca que o e-mail foi enviado à transportadora, começando a contar o CT-e. */
   async function requestCte(load: CargoLoad) {
-    await saveStages(load, { cte_requested_at: new Date().toISOString() }, "CT-e solicitado à transportadora");
+    if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
+    const now = new Date().toISOString();
+    const key = ["cargo_loads", household];
+
+    // mostra na hora, sem esperar o banco
+    qc.setQueryData<CargoLoad[]>(key, (old) =>
+      (old ?? []).map((l) => (l.id === load.id ? { ...l, cte_requested_at: now } : l)),
+    );
+
+    setBusy(true);
+    try {
+      const { data, error } = await supabase
+        .from("cargo_loads")
+        .update({ cte_requested_at: now })
+        .eq("id", load.id)
+        .select("id");
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error("O banco não permitiu gravar. Confira a permissão de atualização.");
+      }
+      toast.success("Contando o tempo do CT-e");
+    } catch (e) {
+      toast.error(errorMessage(e));
+    } finally {
+      await qc.invalidateQueries({ queryKey: key });
+      setBusy(false);
+    }
   }
 
   async function copy(value: string, what: string) {
