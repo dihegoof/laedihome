@@ -419,7 +419,8 @@ function ProductModal({
 
           <Field label="Medida do estoque">
             <select className="field" value={local.stock_unit} onChange={(e) => setLocal({ ...local, stock_unit: e.target.value as StockUnit })}>
-              {STOCK_UNITS.map((unit) => <option key={unit} value={unit}>{unit === "un" ? "un — unidades" : unit === "l" ? "l — litros" : unit}</option>)}
+              {STOCK_UNITS.map((unit) => (<option key={unit} value={unit}> {unit === "un" ? "un — unidades" : unit === "kg" ? "kg — quilos" : "l — litros"} </option> ))}
+
             </select>
           </Field>
 
