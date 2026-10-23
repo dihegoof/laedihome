@@ -22,7 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/data";
 import { sendDueAppointmentNotifications, sendDueCleaningNotifications } from "@/lib/notifications.functions";
 import { useApplyTheme, useSettings } from "@/lib/settings";
-import { isTabAllowed, usePermissions, TABS as ALL_TABS } from "@/lib/permissions";
+import { isTabAllowed, usePermissions } from "@/lib/permissions";
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): { menuWeek?: string } => ({
@@ -89,6 +89,7 @@ function Index() {
   });
   const isOwner = !!user && !!household && household.owner_id === user.id;
   const { data: permissions } = usePermissions(user?.id);
+
   useEffect(() => {
     if (!session) return;
     const check = () => {
@@ -96,7 +97,6 @@ function Index() {
       void sendCleaningNotifications().catch(() => undefined);
     };
     check();
-    const blocked = !isTabAllowed(permissions, tab) && tab !== "painel";
     const interval = window.setInterval(check, 60_000);
     return () => window.clearInterval(interval);
   }, [sendCleaningNotifications, sendNotifications, session]);
@@ -112,6 +112,8 @@ function Index() {
   if (!session) return <AuthScreen />;
 
   const userName = profile?.name ?? "Alguém";
+  /** O dono da casa nunca é bloqueado. */
+  const blocked = !isOwner && !isTabAllowed(permissions, tab) && tab !== "painel";
 
   return (
     <div className="min-h-dvh pb-24">
@@ -152,7 +154,7 @@ function Index() {
       <ConnectionStatus />
       <AppointmentReminder />
 
-            <main className={`mx-auto px-4 py-4 ${tab === "cargas" ? "max-w-4xl" : "max-w-2xl"}`}>
+      <main className={`mx-auto px-4 py-4 ${tab === "cargas" ? "max-w-4xl" : "max-w-2xl"}`}>
         {blocked ? (
           <div className="surface p-6 text-center">
             <p className="text-base font-semibold">Esta aba está bloqueada</p>
@@ -173,7 +175,6 @@ function Index() {
           </>
         )}
       </main>
-
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl">
