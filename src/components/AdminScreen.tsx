@@ -1,8 +1,14 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { TABS, isTabAllowed, usePermissions, useSavePermission } from "@/lib/permissions";
 import { toast } from "sonner";
 import { Bell, Calculator, CalendarRange, Check, Clock, Palette, Plus, Sparkles, Tag, Trash2, Wallet } from "lucide-react";
 import { Button, EmptyState, Field, Spinner } from "@/components/kit";
-import { logHistory } from "@/lib/data";
+import { logHistory } from "@/lib/data"
+import { useMembers } from "@/lib/data";
+import { TABS, usePermissions, useSavePermission } from "@/lib/permissions";
+import { Lock } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import {
   DEFAULT_SETTINGS,
   THEMES,
@@ -29,6 +35,18 @@ export function AdminScreen({ userName }: { userName: string }) {
   const targetGlucose = settings?.target_glucose ?? DEFAULT_SETTINGS.target_glucose;
   const correctionFactor = settings?.correction_factor ?? DEFAULT_SETTINGS.correction_factor;
   const doseIncrement = settings?.dose_increment ?? DEFAULT_SETTINGS.dose_increment;
+  const { data: members = [] } = useMembers();
+  const { data: household } = useQuery({
+    queryKey: ["household-owner"],
+    queryFn: async () => {
+      const { data } = await supabase.from("households").select("id,owner_id").limit(1).maybeSingle();
+      return data;
+    },
+  });
+  const [selected, setSelected] = useState<string | null>(null);
+  const { data: permissions } = usePermissions(selected);
+  const savePermission = useSavePermission();
+
 
   async function apply(patch: Parameters<typeof save>[0], log: string) {
     setBusy(true);
@@ -45,6 +63,9 @@ export function AdminScreen({ userName }: { userName: string }) {
 
   if (isLoading) return <EmptyState>Carregando painel...</EmptyState>;
 
+  const memberList = members.filter((m) => m.id !== household?.owner_id);
+  const activeMember = selected ?? memberList[0]?.id ?? null;
+  
   return (
     <div className="space-y-4">
       <section className="surface p-4">
@@ -210,6 +231,65 @@ export function AdminScreen({ userName }: { userName: string }) {
           </Field>
         </div>
         <p className="mt-2 text-xs text-muted-foreground">O aviso é enviado aos aparelhos ativados das pessoas da casa.</p>
+      </section>
+
+      <section className="surface p-4">
+        <header className="mb-3 flex items-center gap-2">
+          <Lock className="h-4 w-4 text-primary" />
+          <h3 className="text-base">Abas liberadas</h3>
+        </header>
+
+        {memberList.length === 0 && (
+          <p className="text-sm text-muted-foreground">Ninguém além de você na casa ainda.</p>
+        )}
+
+        {memberList.length > 1 && (
+          <Field label="Membro">
+            <select
+              className="field"
+              value={activeMember ?? ""}
+              onChange={(e) => setSelected(e.target.value)}
+            >
+              {memberList.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        {activeMember && (
+          <div className="mt-3 space-y-2">
+            {TABS.map((t) => {
+              const allowed = isTabAllowed(permissions, t.key);
+              return (
+                <label key={t.key} className="flex items-center justify-between gap-2 text-sm">
+                  <span>{t.label}</span>
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border accent-primary"
+                    checked={allowed}
+                    disabled={busy}
+                    onChange={(e) => {
+                      setBusy(true);
+                      void savePermission(activeMember, t.key, e.target.checked)
+                        .then(() => {
+                          void logHistory(userName, `${e.target.checked ? "liberou" : "bloqueou"} a aba ${t.label}`);
+                          toast.success("Permissão atualizada");
+                        })
+                        .catch((err: unknown) =>
+                          toast.error(err instanceof Error ? err.message : "Não consegui salvar"),
+                        )
+                        .finally(() => setBusy(false));
+                    }}
+                  />
+                </label>
+              );
+            })}
+            <p className="pt-1 text-xs text-muted-foreground">
+              Desmarcado deixa a aba bloqueada para essa pessoa. O dono da casa sempre tem acesso a tudo.
+            </p>
+          </div>
+        )}
       </section>
 
       <CategoryEditor
