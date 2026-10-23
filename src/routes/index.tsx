@@ -152,16 +152,28 @@ function Index() {
       <ConnectionStatus />
       <AppointmentReminder />
 
-      <main className={`mx-auto px-4 py-4 ${tab === "cargas" ? "max-w-4xl" : "max-w-2xl"}`}>
-        {tab === "despensa" && <InventoryScreen userName={userName} />}
-        {tab === "financas" && <FinanceScreen userName={userName} />}
-        {tab === "armario" && <WardrobeScreen userName={userName} />}
-        {tab === "compromissos" && <AppointmentsScreen userName={userName} />}
-        {tab === "isis" && <IsisScreen userName={userName} />}
-        {tab === "historico" && <HistoryScreen />}
-        {cargosVisited && <div hidden={tab !== "cargas"}><CargoScreen /></div>}
-        {tab === "painel" && isOwner && <AdminScreen userName={userName} />}
+            <main className={`mx-auto px-4 py-4 ${tab === "cargas" ? "max-w-4xl" : "max-w-2xl"}`}>
+        {blocked ? (
+          <div className="surface p-6 text-center">
+            <p className="text-base font-semibold">Esta aba está bloqueada</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Peça a quem administra a casa para liberar o acesso.
+            </p>
+          </div>
+        ) : (
+          <>
+            {tab === "despensa" && <InventoryScreen userName={userName} />}
+            {tab === "financas" && <FinanceScreen userName={userName} />}
+            {tab === "armario" && <WardrobeScreen userName={userName} />}
+            {tab === "compromissos" && <AppointmentsScreen userName={userName} />}
+            {tab === "isis" && <IsisScreen userName={userName} />}
+            {tab === "historico" && <HistoryScreen />}
+            {cargosVisited && <div hidden={tab !== "cargas"}><CargoScreen /></div>}
+            {tab === "painel" && isOwner && <AdminScreen userName={userName} />}
+          </>
+        )}
       </main>
+
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl">
