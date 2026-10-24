@@ -30,13 +30,13 @@ export const Route = createFileRoute("/")({
   }),
   head: () => ({
     meta: [
-      { title: "Nossa Casa — despensa, finanças e guarda-roupa a dois" },
+      { title: "LaediHome" },
       {
         name: "description",
         content:
           "Organize despensa, contas, cartões, dívidas e guarda-roupa em um só lugar, sincronizado em tempo real entre o casal.",
       },
-      { property: "og:title", content: "Nossa Casa — despensa, finanças e guarda-roupa a dois" },
+      { property: "og:title", content: "LaediHome" },
       {
         property: "og:description",
         content:
