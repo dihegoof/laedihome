@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { TABS, isTabAllowed, usePermissions, useSavePermission } from "@/lib/permissions";
 import { toast } from "sonner";
-import { Bell, Calculator, CalendarRange, Check, Clock, Palette, Plus, Sparkles, Tag, Trash2, Wallet } from "lucide-react";
+import {
+  Bell, Calculator, CalendarRange, Check, Clock, Lock, Palette, Plus,
+  Sparkles, Tag, Trash2, Wallet,
+} from "lucide-react";
 import { Button, EmptyState, Field, Spinner } from "@/components/kit";
-import { logHistory } from "@/lib/data"
-import { useMembers } from "@/lib/data";
-import { TABS, usePermissions, useSavePermission } from "@/lib/permissions";
-import { Lock } from "lucide-react";
+import { logHistory, useMembers } from "@/lib/data";
+import { TABS, isTabAllowed, usePermissions, useSavePermission } from "@/lib/permissions";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DEFAULT_SETTINGS,
