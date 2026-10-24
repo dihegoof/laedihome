@@ -9,7 +9,7 @@ import { Button, EmptyState, Field, Spinner } from "@/components/kit";
 import { logHistory, useMembers } from "@/lib/data";
 import { TABS, isTabAllowed, usePermissions, useSavePermission } from "@/lib/permissions";
 import { supabase } from "@/integrations/supabase/client";
-import { compressImage, uploadFile } from "@/lib/storage";
+import { compressImage, getSignedUrl, uploadFile } from "@/lib/storage";
 import { Image as ImageIcon } from "lucide-react";
 import {
   DEFAULT_SETTINGS,
@@ -20,6 +20,16 @@ import {
 
 export function AdminScreen({ userName }: { userName: string }) {
   const { data: settings, isLoading } = useSettings();
+  const [headerUrl, setHeaderUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void getSignedUrl("product-images", settings?.header_image_url ?? null)
+      .then((url) => { if (alive) setHeaderUrl(url); })
+      .catch(() => { if (alive) setHeaderUrl(null); });
+    return () => { alive = false; };
+  }, [settings?.header_image_url]);
+
   const save = useSaveSettings();
   const [busy, setBusy] = useState(false);
 
@@ -326,7 +336,7 @@ export function AdminScreen({ userName }: { userName: string }) {
           style={
             settings?.header_image_url
               ? {
-                  backgroundImage: `url(${settings.header_image_url})`,
+                  backgroundImage: `url(${headerUrl})`,
                   backgroundSize: "cover",
                   backgroundPosition: "center",
                 }
