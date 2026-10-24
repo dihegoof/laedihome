@@ -221,3 +221,18 @@ export function cargoCsv(loads: CargoLoad[], detailed: boolean) {
   const escape = (value: unknown) => `"${String(value ?? '').replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g,'""')}"`;
   return '\uFEFF'+[header,...rows].map((row) => row.map(escape).join(';')).join('\r\n');
 }
+export function liquidationCsv(loads: CargoLoad[]): string {
+  const header = ["DT", "Placa", "Transportadora", "Data"];
+  const escape = (value: unknown) =>
+    `"${String(value ?? "").replace(/^[=+\-@\t\r]/, "'$&").replace(/"/g, '""')}"`;
+  const rows = loads
+    .filter((l) => !!l.departure_confirmed)
+    .map((l) => [
+      l.driver_dt ?? "",
+      (l.plate ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase(),
+      l.carrier ?? "",
+      l.scheduled_date ? new Date(`${l.scheduled_date}T12:00:00`).toLocaleDateString("pt-BR") : "",
+    ]);
+  return "\uFEFF" + [header, ...rows].map((r) => r.map(escape).join(";")).join("\r\n");
+}
+
