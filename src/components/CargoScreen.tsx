@@ -586,7 +586,7 @@ function CargoContent() {
         </section>
 
         {/* DIREITA — espelho */}
-        <section>
+        <section className="lg:sticky lg:top-20 lg:self-start lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
           {!current ? (
             <EmptyState>Toque em uma carga para abrir o espelho.</EmptyState>
           ) : (
