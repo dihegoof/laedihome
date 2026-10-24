@@ -76,11 +76,11 @@ function Index() {
 
   useEffect(() => {
     let alive = true;
-    void getSignedUrl("product-images", settings?.headerUrl ?? null)
+    void getSignedUrl("product-images", settings?.header_image_url ?? null)
       .then((url) => { if (alive) setHeaderUrl(url); })
       .catch(() => { if (alive) setHeaderUrl(null); });
     return () => { alive = false; };
-  }, [settings?.headerUrl]);
+  }, [settings?.header_image_url]);
 
   useApplyTheme(settings?.theme);
 
@@ -132,9 +132,9 @@ function Index() {
           <div
             className="relative flex h-36 items-end overflow-hidden rounded-2xl border border-border bg-primary"
             style={
-              settings?.header_image_url
+              headerUrl
                 ? {
-                    backgroundImage: `url(${settings.header_image_url})`,
+                    backgroundImage: `url(${headerUrl})`,
                     backgroundSize: "cover",
                     backgroundPosition: "center",
                   }
