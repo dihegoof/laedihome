@@ -124,7 +124,7 @@ function Index() {
               <Home className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg leading-tight">Nossa Casa</h1>
+              <h1 className="text-lg leading-tight">LaediHome</h1>
               <p className="text-xs text-muted-foreground">Olá, {userName}</p>
             </div>
             {isOwner && (
