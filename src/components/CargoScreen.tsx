@@ -10,7 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
   billingCompletionPatch, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
-  numberValue, quickCargoImport, stageLabel, stages, validateDraft,
+  liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft,
   type CargoDraft, type CargoHistory, type CargoLoad, type Stage,
 } from "@/lib/cargo";
 
@@ -532,6 +532,29 @@ function CargoContent() {
                 <div className="flex items-center gap-2">
                   <h3 className="text-[13px] font-semibold text-muted-foreground">{BUCKETS[key].label}</h3>
                   <Pill tone={BUCKETS[key].tone as never}>{items.length}</Pill>
+                  {key === "done" && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="ml-auto h-7 px-2 text-[11px]"
+                      onClick={() => {
+                        const csv = liquidationCsv(groups.done);
+                        const url = URL.createObjectURL(
+                          new Blob([csv], { type: "text/csv;charset=utf-8" }),
+                        );
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `liquidacao-${cargoDay()}.csv`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                        toast.success(
+                          `${groups.done.filter((l) => l.departure_confirmed).length} carga(s) com saída`,
+                        );
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" /> Lista de liquidação
+                    </Button>
+                  )}
                 </div>
                 {items.map((l) => (
                   <button
