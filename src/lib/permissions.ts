@@ -1,6 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useEffect } from "react";
 
 /** As abas do app, na mesma ordem do menu. */
 export const TABS = [
@@ -17,8 +18,9 @@ export const TABS = [
 export function usePermissions(userId?: string | null) {
   const { profile } = useAuth();
   const household = profile?.household_id;
+  const qc = useQueryClient();
 
-  return useQuery({
+  const query = useQuery({
     queryKey: ["tab_permissions", household, userId],
     enabled: !!household && !!userId,
     queryFn: async () => {
@@ -32,6 +34,27 @@ export function usePermissions(userId?: string | null) {
       return map;
     },
   });
+
+  // Ouve a tabela: quando o dono muda uma permissão, os aparelhos ligados
+  // recebem o aviso e a tela se ajusta sozinha.
+  useEffect(() => {
+    if (!household) return;
+    const channel = supabase
+      .channel(`permissoes-${household}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tab_permissions" },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["tab_permissions", household] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [household, qc]);
+
+  return query;
 }
 
 /** Uma aba está liberada? Sem cadastro, liberada. */
