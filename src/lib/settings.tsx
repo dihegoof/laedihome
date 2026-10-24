@@ -19,6 +19,8 @@ export type HouseholdSettings = {
   target_glucose: number;
   correction_factor: number;
   dose_increment: number;
+  header_image_url: string | null;
+  header_title: string | null;
 };
 
 export const THEMES: { key: string; label: string; swatch: string[] }[] = [
@@ -45,6 +47,8 @@ export const DEFAULT_SETTINGS = {
   target_glucose: 100,
   correction_factor: 150,
   dose_increment: 0.5,
+  eader_image_url: null,
+  header_title: "LaediHome",
 };
 
 export function useSettings(enabled = true) {
@@ -75,6 +79,8 @@ export function useSettings(enabled = true) {
         target_glucose: Number(data.target_glucose ?? DEFAULT_SETTINGS.target_glucose),
         correction_factor: Number(data.correction_factor ?? DEFAULT_SETTINGS.correction_factor),
         dose_increment: Number(data.dose_increment ?? DEFAULT_SETTINGS.dose_increment),
+        header_image_url: (data.header_image_url as string | null) ?? null,
+        header_title: (data.header_title as string | null) ?? null,
       } satisfies HouseholdSettings;
     },
   });
