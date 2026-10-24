@@ -62,3 +62,10 @@ export function fileToDataUrl(file: File | Blob): Promise<string> {
     reader.readAsDataURL(file);
   });
 }
+
+/** Imagem de fundo do cabeçalho. Usa o bucket de imagens que já existe. */
+export async function uploadHeaderImage(file: File) {
+  const blob = await compressImage(file, 1600, 0.85);
+  return uploadFile("product-images", blob, "jpg");
+}
+
