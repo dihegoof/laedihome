@@ -23,6 +23,7 @@ import { useRealtimeSync } from "@/lib/data";
 import { sendDueAppointmentNotifications, sendDueCleaningNotifications } from "@/lib/notifications.functions";
 import { useApplyTheme, useSettings } from "@/lib/settings";
 import { isTabAllowed, usePermissions, usePermissionsRealtime } from "@/lib/permissions";
+import { getSignedUrl } from "@/lib/storage";
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): { menuWeek?: string } => ({
@@ -71,6 +72,16 @@ function Index() {
   const sendCleaningNotifications = useServerFn(sendDueCleaningNotifications);
   useRealtimeSync(!!session);
   const { data: settings } = useSettings(!!session);
+  const [headerUrl, setHeaderUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void getSignedUrl("product-images", settings?.headerUrl ?? null)
+      .then((url) => { if (alive) setHeaderUrl(url); })
+      .catch(() => { if (alive) setHeaderUrl(null); });
+    return () => { alive = false; };
+  }, [settings?.headerUrl]);
+
   useApplyTheme(settings?.theme);
 
   const { data: household } = useQuery({
@@ -130,7 +141,7 @@ function Index() {
                 : undefined
             }
           >
-            {settings?.header_image_url && (
+            {headerUrl && (
               <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-transparent" />
             )}
 
