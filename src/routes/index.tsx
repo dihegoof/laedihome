@@ -22,7 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRealtimeSync } from "@/lib/data";
 import { sendDueAppointmentNotifications, sendDueCleaningNotifications } from "@/lib/notifications.functions";
 import { useApplyTheme, useSettings } from "@/lib/settings";
-import { isTabAllowed, usePermissions } from "@/lib/permissions";
+import { isTabAllowed, usePermissions, usePermissionsRealtime } from "@/lib/permissions";
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): { menuWeek?: string } => ({
@@ -89,7 +89,7 @@ function Index() {
   });
   const isOwner = !!user && !!household && household.owner_id === user.id;
   const { data: permissions } = usePermissions(user?.id);
-
+  usePermissionsRealtime();
   useEffect(() => {
     if (!session) return;
     const check = () => {
