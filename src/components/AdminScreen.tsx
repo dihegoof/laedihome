@@ -49,7 +49,12 @@ export function AdminScreen({ userName }: { userName: string }) {
   const { data: permissions } = usePermissions(selected);
   const savePermission = useSavePermission();
 
+  const [titleDraft, setTitleDraft] = useState(settings?.header_title ?? "LaediHome");
+  useEffect(() => {
+    setTitleDraft(settings?.header_title ?? "LaediHome");
+  }, [settings?.header_title]);
 
+  
   async function apply(patch: Parameters<typeof save>[0], log: string) {
     setBusy(true);
     try {
@@ -339,9 +344,15 @@ export function AdminScreen({ userName }: { userName: string }) {
         <Field label="Título">
           <input
             className="field"
-            value={settings?.header_title ?? "LaediHome"}
+            value={titleDraft}
             disabled={busy}
-            onChange={(event) => void apply({ header_title: event.target.value }, "mudou o título do cabeçalho")}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            onBlur={() => {
+              const next = titleDraft.trim() || "LaediHome";
+              if (next !== (settings?.header_title ?? "LaediHome")) {
+                void apply({ header_title: next }, "mudou o título do cabeçalho");
+              }
+            }}
           />
         </Field>
 
