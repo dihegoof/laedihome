@@ -112,41 +112,61 @@ function Index() {
   if (!session) return <AuthScreen />;
 
   const userName = profile?.name ?? "Alguém";
-  /** O dono da casa nunca é bloqueado. */
   const blocked = !isOwner && !isTabAllowed(permissions, tab) && tab !== "painel";
 
   return (
     <div className="min-h-dvh pb-24">
       <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur-md">
-        <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-              <Home className="h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-lg leading-tight">LaediHome</h1>
-              <p className="text-xs text-muted-foreground">Olá, {userName}</p>
-            </div>
-            {isOwner && (
-              <Button
-                onClick={() => setTab(tab === "painel" ? "despensa" : "painel")}
-                aria-label="Painel do administrador"
-                title="Painel do administrador"
-                size="icon"
-                variant={tab === "painel" ? "primary" : "soft"}
-                className="ml-1"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
+        <div className="mx-auto max-w-2xl px-4 py-3">
+          <div
+            className="relative flex h-36 items-end overflow-hidden rounded-2xl border border-border bg-primary"
+            style={
+              settings?.header_image_url
+                ? {
+                    backgroundImage: `url(${settings.header_image_url})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                  }
+                : undefined
+            }
+          >
+            {settings?.header_image_url && (
+              <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/40 to-transparent" />
             )}
-          </div>
-          <div className="flex items-center gap-2">
-            <Button size="icon" variant="outline" onClick={() => setAssistantOpen(true)} aria-label="Abrir assistente" title="Assistente por voz">
-              <Mic className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant="outline" onClick={() => setHouseOpen(true)} aria-label="Convidar pessoa" title="Convidar pessoa">
-              <UserPlus className="h-4 w-4" />
-            </Button>
+
+            <div className="relative z-10 flex w-full items-end justify-between gap-2 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-sm">
+                  <Home className="h-7 w-7 text-white" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="truncate text-2xl font-bold leading-tight text-white">
+                    {settings?.header_title ?? "LaediHome"}
+                  </h1>
+                  <p className="truncate text-xs text-white/85">Seja bem-vindo, {userName}</p>
+                </div>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                {isOwner && (
+                  <Button
+                    onClick={() => setTab(tab === "painel" ? "despensa" : "painel")}
+                    aria-label="Painel do administrador"
+                    title="Painel do administrador"
+                    size="icon"
+                    variant={tab === "painel" ? "primary" : "soft"}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                )}
+                <Button size="icon" variant="outline" onClick={() => setAssistantOpen(true)} aria-label="Abrir assistente" title="Assistente por voz">
+                  <Mic className="h-4 w-4" />
+                </Button>
+                <Button size="icon" variant="outline" onClick={() => setHouseOpen(true)} aria-label="Convidar pessoa" title="Convidar pessoa">
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </header>
