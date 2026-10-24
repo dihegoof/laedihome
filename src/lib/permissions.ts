@@ -37,7 +37,7 @@ export function usePermissions(userId?: string | null) {
 
   // Ouve a tabela: quando o dono muda uma permissão, os aparelhos ligados
   // recebem o aviso e a tela se ajusta sozinha.
-  useEffect(() => {
+    useEffect(() => {
     if (!household) return;
     const channel = supabase
       .channel(`permissoes-${household}`)
