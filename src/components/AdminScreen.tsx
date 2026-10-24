@@ -9,6 +9,8 @@ import { Button, EmptyState, Field, Spinner } from "@/components/kit";
 import { logHistory, useMembers } from "@/lib/data";
 import { TABS, isTabAllowed, usePermissions, useSavePermission } from "@/lib/permissions";
 import { supabase } from "@/integrations/supabase/client";
+import { compressImage, uploadFile } from "@/lib/storage";
+import { Image as ImageIcon } from "lucide-react";
 import {
   DEFAULT_SETTINGS,
   THEMES,
@@ -307,6 +309,73 @@ export function AdminScreen({ userName }: { userName: string }) {
         disabled={busy}
         onChange={(next) => void apply({ finance_categories: next }, "editou as categorias das finanças")}
       />
+
+      <section className="surface p-4">
+        <header className="mb-3 flex items-center gap-2">
+          <ImageIcon className="h-4 w-4 text-primary" />
+          <h3 className="text-base">Cabeçalho do app</h3>
+        </header>
+
+        <div
+          className="relative mb-3 flex h-28 items-end overflow-hidden rounded-xl border border-border bg-secondary"
+          style={
+            settings?.header_image_url
+              ? {
+                  backgroundImage: `url(${settings.header_image_url})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                }
+              : undefined
+          }
+        >
+          <div className="w-full bg-gradient-to-t from-black/70 to-transparent p-3">
+            <p className="text-lg font-bold text-white">
+              {settings?.header_title ?? "LaediHome"}
+            </p>
+            <p className="text-xs text-white/80">Seja bem-vindo, {userName}</p>
+          </div>
+        </div>
+
+        <Field label="Título">
+          <input
+            className="field"
+            value={settings?.header_title ?? "LaediHome"}
+            disabled={busy}
+            onChange={(event) => void apply({ header_title: event.target.value }, "mudou o título do cabeçalho")}
+          />
+        </Field>
+
+        <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm font-semibold text-primary">
+          <ImageIcon className="h-4 w-4" />
+          {busy ? "Enviando..." : "Trocar imagem"}
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={busy}
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              if (!file) return;
+              setBusy(true);
+              try {
+                const path = await uploadFile(
+                  "product-images",
+                  await compressImage(file, 1600, 0.85),
+                  "jpg",
+                );
+                await apply({ header_image_url: path }, "mudou a imagem do cabeçalho");
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : "Não consegui enviar a imagem");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </label>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Utilizar uma foto de tamanho padrão!
+        </p>
+      </section>
     </div>
   );
 }
