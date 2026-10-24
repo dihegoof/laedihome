@@ -18,9 +18,8 @@ export const TABS = [
 export function usePermissions(userId?: string | null) {
   const { profile } = useAuth();
   const household = profile?.household_id;
-  const qc = useQueryClient();
 
-  const query = useQuery({
+  return useQuery({
     queryKey: ["tab_permissions", household, userId],
     enabled: !!household && !!userId,
     queryFn: async () => {
@@ -34,27 +33,6 @@ export function usePermissions(userId?: string | null) {
       return map;
     },
   });
-
-  // Ouve a tabela: quando o dono muda uma permissão, os aparelhos ligados
-  // recebem o aviso e a tela se ajusta sozinha.
-    useEffect(() => {
-    if (!household) return;
-    const channel = supabase
-      .channel(`permissoes-${household}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "tab_permissions" },
-        () => {
-          void qc.invalidateQueries({ queryKey: ["tab_permissions", household] });
-        },
-      )
-      .subscribe();
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [household, qc]);
-
-  return query;
 }
 
 /** Uma aba está liberada? Sem cadastro, liberada. */
@@ -84,3 +62,32 @@ export function useSavePermission() {
     await qc.invalidateQueries({ queryKey: ["tab_permissions", household] });
   };
 }
+
+/**
+ * Ouve mudanças de permissão da casa e recarrega.
+ * Chame uma única vez, no index.tsx — não use dentro do usePermissions,
+ * senão cada tela que o usa abre um canal com o mesmo nome e o Supabase recusa.
+ */
+export function usePermissionsRealtime() {
+  const { profile } = useAuth();
+  const household = profile?.household_id;
+  const qc = useQueryClient();
+
+  useEffect(() => {
+    if (!household) return;
+    const channel = supabase
+      .channel(`permissoes-${household}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "tab_permissions" },
+        () => {
+          void qc.invalidateQueries({ queryKey: ["tab_permissions", household] });
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [household, qc]);
+}
+
