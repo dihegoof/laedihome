@@ -1,18 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  Camera,
-  ClipboardList,
-  Copy,
-  CookingPot,
-  Minus,
-  Package,
-  Pencil,
-  Plus,
-  Search,
-  Sparkles,
-  Star,
-  Trash2,
+import { Camera, ClipboardList, Copy, CookingPot, Minus, Package, Pencil, Plus, Search, Sparkles, Star, Trash2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
@@ -47,6 +35,40 @@ const emptyDraft: Draft = {
   notes: "",
 };
 
+function stepOptions(unit: StockUnit): { label: string; value: number }[] {
+  if (unit === "kg") {
+    return [
+      { label: "100 g", value: 0.1 },
+      { label: "250 g", value: 0.25 },
+      { label: "500 g", value: 0.5 },
+      { label: "1 kg", value: 1 },
+      { label: "5 kg", value: 5 },
+    ];
+  }
+  if (unit === "l") {
+    return [
+      { label: "100 ml", value: 0.1 },
+      { label: "250 ml", value: 0.25 },
+      { label: "500 ml", value: 0.5 },
+      { label: "1 l", value: 1 },
+      { label: "5 l", value: 5 },
+    ];
+  }
+  return [
+    { label: "1 un", value: 1 },
+    { label: "2 un", value: 2 },
+    { label: "5 un", value: 5 },
+    { label: "10 un", value: 10 },
+  ];
+}
+
+function stockLabel(quantity: number, unit: StockUnit): string {
+  const amount = Number(quantity) || 0;
+  if (unit === "kg" && amount > 0 && amount < 1) return `${qty(amount * 1000)} g`;
+  if (unit === "l" && amount > 0 && amount < 1) return `${qty(amount * 1000)} ml`;
+  return `${qty(amount)} ${unit}`;
+}
+
 export function InventoryScreen({ userName }: { userName: string }) {
   const { data: products = [], isLoading } = useProducts();
   const categories = useProductCategories();
@@ -58,6 +80,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [stepFor, setStepFor] = useState<{ id: string; direction: -1 | 1 } | null>(null);
 
   const filtered = useMemo(() => {
     return products.filter((p) => {
@@ -106,10 +129,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
     void logHistory(userName, "excluiu produto", product.name);
     toast.success("Produto excluído");
   }
-
-
-
-
+  
   if (menuOpen) return <WeeklyMenu products={products} onBack={() => setMenuOpen(false)} />;
 
   return (
@@ -203,21 +223,26 @@ export function InventoryScreen({ userName }: { userName: string }) {
                   {p.notes && (
                     <p className="mt-0.5 text-xs font-medium text-primary">{p.notes}</p>
                   )}
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {Number(p.quantity) > 0 ? (
-                      <>Em casa: {formatStock(Number(p.quantity), p.stock_unit)}</>
-                    ) : (
-                      <span className="text-destructive">
-                        Acabou{p.out_of_stock_since ? ` há ${daysSince(p.out_of_stock_since)} dia(s)` : ""}
-                      </span>
-                    )}
-                  </p>
+                  {Number(p.quantity) <= 0 && (
+                    <p className="mt-0.5 text-xs text-destructive">
+                      Acabou{p.out_of_stock_since ? ` há ${daysSince(p.out_of_stock_since)} dia(s)` : ""}
+                    </p>
+                  )}
                   <div className="mt-2 flex items-center gap-1">
-                    <Button size="icon" variant="outline" onClick={() => void changeQuantity(p, -1)}>
+                    <Button
+                      size="icon"
+                      variant="outline"
+                      onClick={() => setStepFor({ id: p.id, direction: -1 })}
+                    >
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="w-10 text-center text-sm font-semibold">{qty(Number(p.quantity))}</span>
-                    <Button size="icon" variant="soft" onClick={() => void changeQuantity(p, 1)}>
+                    <span className="min-w-16 flex-1 text-center text-sm font-semibold">
+                      {stockLabel(Number(p.quantity), p.stock_unit ?? "un")}
+                    </span>
+                    <Button
+                      size="icon"
+                      variant="soft"
+                      onClick={() => setStepFor({ id: p.id, direction: 1 })} >
                       <Plus className="h-4 w-4" />
                     </Button>
                     <div className="ml-auto flex gap-1">
@@ -264,8 +289,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
         draft={draft}
         onClose={() => setDraft(null)}
         userName={userName}
-        onSaved={() => void invalidate("products")}
-      />
+        onSaved={() => void invalidate("products")}/>
       <ImportModal
         open={importOpen}
         onClose={() => setImportOpen(false)}
@@ -472,6 +496,33 @@ function ProductModal({
         </>
       )}
     </Modal>
+    <Modal
+        open={!!stepFor}
+        onClose={() => setStepFor(null)}
+        title={stepFor?.direction === 1 ? "Aumentar quanto?" : "Diminuir quanto?"}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {stepOptions(
+            (products.find((p) => p.id === stepFor?.id)?.stock_unit ?? "un") as StockUnit,
+          ).map(({ label, value }) => (
+            <Button
+              key={label}
+              variant="outline"
+              onClick={() => {
+                const product = products.find((p) => p.id === stepFor?.id);
+                setStepFor(null);
+                if (product) void changeQuantity(product, (stepFor?.direction ?? 1) * value);
+              }}
+            >
+              {stepFor?.direction === 1 ? "+" : "−"} {label}
+            </Button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          O passo é escolhido a cada clique, então você pode diminuir 100 g de um item e 500 g de outro.
+        </p>
+      </Modal>
+    </div>
   );
 }
 
