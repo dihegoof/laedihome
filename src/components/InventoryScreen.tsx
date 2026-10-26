@@ -301,6 +301,32 @@ export function InventoryScreen({ userName }: { userName: string }) {
         }}
       />
       <ExportModal open={exportOpen} onClose={() => setExportOpen(false)} products={products} />
+      <Modal
+        open={!!stepFor}
+        onClose={() => setStepFor(null)}
+        title={stepFor?.direction === 1 ? "Aumentar quanto?" : "Diminuir quanto?"}
+      >
+        <div className="grid grid-cols-2 gap-2">
+          {stepOptions(
+            (products.find((p) => p.id === stepFor?.id)?.stock_unit ?? "un") as StockUnit,
+          ).map(({ label, value }) => (
+            <Button
+              key={label}
+              variant="outline"
+              onClick={() => {
+                const product = products.find((p) => p.id === stepFor?.id);
+                setStepFor(null);
+                if (product) void changeQuantity(product, (stepFor?.direction ?? 1) * value);
+              }}
+            >
+              {stepFor?.direction === 1 ? "+" : "−"} {label}
+            </Button>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          O passo é escolhido a cada clique, então você pode diminuir 100 g de um item e 500 g de outro.
+        </p>
+      </Modal>
     </div>
   );
 }
@@ -496,32 +522,6 @@ function ProductModal({
         </>
       )}
     </Modal>
-    <Modal
-        open={!!stepFor}
-        onClose={() => setStepFor(null)}
-        title={stepFor?.direction === 1 ? "Aumentar quanto?" : "Diminuir quanto?"}
-      >
-        <div className="grid grid-cols-2 gap-2">
-          {stepOptions(
-            (products.find((p) => p.id === stepFor?.id)?.stock_unit ?? "un") as StockUnit,
-          ).map(({ label, value }) => (
-            <Button
-              key={label}
-              variant="outline"
-              onClick={() => {
-                const product = products.find((p) => p.id === stepFor?.id);
-                setStepFor(null);
-                if (product) void changeQuantity(product, (stepFor?.direction ?? 1) * value);
-              }}
-            >
-              {stepFor?.direction === 1 ? "+" : "−"} {label}
-            </Button>
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          O passo é escolhido a cada clique, então você pode diminuir 100 g de um item e 500 g de outro.
-        </p>
-      </Modal>
     </div>
   );
 }
