@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Camera, ClipboardList, Copy, CookingPot, Minus, Package, Pencil, Plus, Search, Sparkles, Star, Trash2,
-} from "lucide-react";
+import { Camera, ClipboardList, Copy, CookingPot, Minus, Package, Pencil, Plus, Search, Sparkles, Star, Trash2 } from "lucide-react";
+
 import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
