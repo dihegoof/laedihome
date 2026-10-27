@@ -9,7 +9,7 @@ import { WeeklyMenu } from "@/components/WeeklyMenu";
 import { STOCK_UNITS, type StockUnit } from "@/lib/weekly-menu";
 import { useInvalidate, useProducts, logHistory } from "@/lib/data";
 import { type Product } from "@/lib/types";
-import { useProductCategories } from "@/lib/settings";
+import { useProductCategories, useSettings } from "@/lib/settings";
 import { compressImage, fileToDataUrl, uploadFile } from "@/lib/storage";
 import { daysSince, formatStock, qty } from "@/lib/format";
 import { parseReceipt, parseReceiptImage } from "@/lib/ai.functions";
@@ -35,31 +35,20 @@ const emptyDraft: Draft = {
   notes: "",
 };
 
-function stepOptions(unit: StockUnit): { label: string; value: number }[] {
-  if (unit === "kg") {
-    return [
-      { label: "100 g", value: 0.1 },
-      { label: "250 g", value: 0.25 },
-      { label: "500 g", value: 0.5 },
-      { label: "1 kg", value: 1 },
-      { label: "5 kg", value: 5 },
-    ];
-  }
-  if (unit === "l") {
-    return [
-      { label: "100 ml", value: 0.1 },
-      { label: "250 ml", value: 0.25 },
-      { label: "500 ml", value: 0.5 },
-      { label: "1 l", value: 1 },
-      { label: "5 l", value: 5 },
-    ];
-  }
-  return [
-    { label: "1 un", value: 1 },
-    { label: "2 un", value: 2 },
-    { label: "5 un", value: 5 },
-    { label: "10 un", value: 10 },
-  ];
+function stepOptions(
+  unit: StockUnit,
+  steps?: { count: number[]; weight: number[]; volume: number[] },
+) {
+  const count = steps?.count ?? [1, 2, 5, 10];
+  const weight = steps?.weight ?? [100, 250, 500, 1000, 5000];
+  const volume = steps?.volume ?? [100, 250, 500, 1000, 5000];
+
+  const grams = (v: number) => (v >= 1000 ? `${qty(v / 1000)} kg` : `${qty(v)} g`);
+  const litres = (v: number) => (v >= 1000 ? `${qty(v / 1000)} l` : `${qty(v)} ml`);
+
+  if (unit === "kg") return weight.map((v) => ({ label: grams(v), value: v / 1000 }));
+  if (unit === "l") return volume.map((v) => ({ label: litres(v), value: v / 1000 }));
+  return count.map((v) => ({ label: `${qty(v)} un`, value: v }));
 }
 
 function stockLabel(quantity: number, unit: StockUnit): string {
@@ -81,7 +70,8 @@ export function InventoryScreen({ userName }: { userName: string }) {
   const [exportOpen, setExportOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [stepFor, setStepFor] = useState<{ id: string; direction: -1 | 1 } | null>(null);
-
+  const { data: settings } = useSettings();
+  
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
@@ -236,7 +226,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="min-w-16 flex-1 text-center text-sm font-semibold">
+                    <span className="min-w-16 text-center text-sm font-semibold">
                       {stockLabel(Number(p.quantity), p.stock_unit ?? "un")}
                     </span>
                     <Button
@@ -306,23 +296,16 @@ export function InventoryScreen({ userName }: { userName: string }) {
         onClose={() => setStepFor(null)}
         title={stepFor?.direction === 1 ? "Aumentar quanto?" : "Diminuir quanto?"}
       >
-        <div className="grid grid-cols-2 gap-2">
-          {stepOptions(
+        {stepOptions(
             (products.find((p) => p.id === stepFor?.id)?.stock_unit ?? "un") as StockUnit,
+            settings
+              ? {
+                  count: settings.steps_count ?? [1, 2, 5, 10],
+                  weight: settings.steps_weight ?? [100, 250, 500, 1000, 5000],
+                  volume: settings.steps_volume ?? [100, 250, 500, 1000, 5000],
+                }
+              : undefined,
           ).map(({ label, value }) => (
-            <Button
-              key={label}
-              variant="outline"
-              onClick={() => {
-                const product = products.find((p) => p.id === stepFor?.id);
-                setStepFor(null);
-                if (product) void changeQuantity(product, (stepFor?.direction ?? 1) * value);
-              }}
-            >
-              {stepFor?.direction === 1 ? "+" : "−"} {label}
-            </Button>
-          ))}
-        </div>
       </Modal>
     </div>
   );
