@@ -21,6 +21,10 @@ export type HouseholdSettings = {
   dose_increment: number;
   header_image_url: string | null;
   header_title: string | null;
+  steps_count: number[];
+  steps_weight: number[];
+  steps_volume: number[];
+
 };
 
 export const THEMES: { key: string; label: string; swatch: string[] }[] = [
@@ -49,6 +53,9 @@ export const DEFAULT_SETTINGS = {
   dose_increment: 0.5,
   eader_image_url: null,
   header_title: "LaediHome",
+  steps_count: [1, 2, 5, 10],
+  steps_weight: [100, 250, 500, 1000, 5000],
+  steps_volume: [100, 250, 500, 1000, 5000],
 };
 
 export function useSettings(enabled = true) {
@@ -81,6 +88,10 @@ export function useSettings(enabled = true) {
         dose_increment: Number(data.dose_increment ?? DEFAULT_SETTINGS.dose_increment),
         header_image_url: (data.header_image_url as string | null) ?? null,
         header_title: (data.header_title as string | null) ?? null,
+        steps_count: Array.isArray(data.steps_count) ? (data.steps_count as number[]) : DEFAULT_SETTINGS.steps_count,
+        steps_weight: Array.isArray(data.steps_weight) ? (data.steps_weight as number[]) : DEFAULT_SETTINGS.steps_weight,
+        steps_volume: Array.isArray(data.steps_volume) ? (data.steps_volume as number[]) : DEFAULT_SETTINGS.steps_volume,
+
       } satisfies HouseholdSettings;
     },
   });
