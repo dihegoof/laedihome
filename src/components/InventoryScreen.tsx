@@ -522,7 +522,6 @@ function ProductModal({
         </>
       )}
     </Modal>
-    </div>
   );
 }
 
