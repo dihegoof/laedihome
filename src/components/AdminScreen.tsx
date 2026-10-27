@@ -324,8 +324,7 @@ export function AdminScreen({ userName }: { userName: string }) {
         disabled={busy}
         onChange={(next) => void apply({ finance_categories: next }, "editou as categorias das finanças")}
       />
-
-      <section className="surface p-4">
+     <section className="surface p-4">
         <header className="mb-3 flex items-center gap-2">
           <ImageIcon className="h-4 w-4 text-primary" />
           <h3 className="text-base">Cabeçalho do app</h3>
@@ -406,6 +405,8 @@ function SettingNumber({ label, value, disabled, min, onSave }: { label: string;
   useEffect(() => setDraft(String(value)), [value]);
   return <Field label={label}><input className="field" inputMode="decimal" value={draft} disabled={disabled} onChange={(event) => setDraft(event.target.value)} onBlur={() => { const next = Number(draft.replace(",", ".")); if (Number.isFinite(next) && next >= min && next !== value) onSave(next); else setDraft(String(value)); }} /></Field>;
 }
+
+
 
 function CategoryEditor({
   icon,
@@ -524,3 +525,42 @@ function CategoryEditor({
       </section>
   );
 }
+
+function StepEditor({
+  label,
+  values,
+  disabled,
+  onSave,
+}: {
+  label: string;
+  values: number[];
+  disabled: boolean;
+  onSave: (next: number[]) => void;
+}) {
+  const [text, setText] = useState(values.join(", "));
+
+  useEffect(() => {
+    setText(values.join(", "));
+  }, [values]);
+
+  return (
+    <Field label={label}>
+      <input
+        className="field"
+        value={text}
+        disabled={disabled}
+        onChange={(e) => setText(e.target.value)}
+        onBlur={() => {
+          const next = text
+            .split(",")
+            .map((v) => Number(v.trim().replace(",", ".")))
+            .filter((v) => Number.isFinite(v) && v > 0);
+          if (next.length && next.join() !== values.join()) onSave(next);
+          else setText(values.join(", "));
+        }}
+        placeholder="100, 250, 500, 1000"
+      />
+    </Field>
+  );
+}
+
