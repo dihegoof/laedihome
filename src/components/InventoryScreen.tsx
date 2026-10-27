@@ -296,16 +296,28 @@ export function InventoryScreen({ userName }: { userName: string }) {
         onClose={() => setStepFor(null)}
         title={stepFor?.direction === 1 ? "Aumentar quanto?" : "Diminuir quanto?"}
       >
-        {stepOptions(
-            (products.find((p) => p.id === stepFor?.id)?.stock_unit ?? "un") as StockUnit,
-            settings
-              ? {
-                  count: settings.steps_count ?? [1, 2, 5, 10],
-                  weight: settings.steps_weight ?? [100, 250, 500, 1000, 5000],
-                  volume: settings.steps_volume ?? [100, 250, 500, 1000, 5000],
-                }
-              : undefined,
-          ).map(({ label, value }) => (
+                {stepOptions(
+          (products.find((p) => p.id === stepFor?.id)?.stock_unit ?? "un") as StockUnit,
+          settings
+            ? {
+                count: settings.steps_count ?? [1, 2, 5, 10],
+                weight: settings.steps_weight ?? [100, 250, 500, 1000, 5000],
+                volume: settings.steps_volume ?? [100, 250, 500, 1000, 5000],
+              }
+            : undefined,
+        ).map(({ label, value }) => (
+          <Button
+            key={label}
+            variant="outline"
+            onClick={() => {
+              const product = products.find((p) => p.id === stepFor?.id);
+              setStepFor(null);
+              if (product) void changeQuantity(product, (stepFor?.direction ?? 1) * value);
+            }}
+          >
+            {stepFor?.direction === 1 ? "+" : "−"} {label}
+          </Button>
+        ))}
       </Modal>
     </div>
   );
