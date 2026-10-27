@@ -323,9 +323,6 @@ export function InventoryScreen({ userName }: { userName: string }) {
             </Button>
           ))}
         </div>
-        <p className="mt-3 text-xs text-muted-foreground">
-          O passo é escolhido a cada clique, então você pode diminuir 100 g de um item e 500 g de outro.
-        </p>
       </Modal>
     </div>
   );
