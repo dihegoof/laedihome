@@ -490,5 +490,37 @@ function CategoryEditor({
         </Button>
       </div>
     </section>
+          <section className="surface p-4">
+        <header className="mb-3 flex items-center gap-2">
+          <Plus className="h-4 w-4 text-primary" />
+          <h3 className="text-base">Passos de ajuste do estoque</h3>
+        </header>
+
+        <p className="mb-3 text-xs text-muted-foreground">
+          Aparecem ao clicar em + ou − na despensa. Escreva separados por vírgula.
+          Use gramas e mililitros: 1000 vira 1 kg, 500 vira 500 g.
+        </p>
+
+        <StepEditor
+          label="Unidades (un)"
+          values={settings?.steps_count ?? [1, 2, 5, 10]}
+          disabled={busy}
+          onSave={(next) => void apply({ steps_count: next }, "editou os passos de unidades")}
+        />
+
+        <StepEditor
+          label="Peso (g e kg)"
+          values={settings?.steps_weight ?? [100, 250, 500, 1000, 5000]}
+          disabled={busy}
+          onSave={(next) => void apply({ steps_weight: next }, "editou os passos de peso")}
+        />
+
+        <StepEditor
+          label="Volume (ml e l)"
+          values={settings?.steps_volume ?? [100, 250, 500, 1000, 5000]}
+          disabled={busy}
+          onSave={(next) => void apply({ steps_volume: next }, "editou os passos de volume")}
+        />
+      </section>
   );
 }
