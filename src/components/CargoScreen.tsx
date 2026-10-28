@@ -135,7 +135,7 @@ const byDt = (a: CargoLoad, b: CargoLoad) =>
   String(a.driver_dt ?? "").localeCompare(String(b.driver_dt ?? ""), "pt-BR", { numeric: true });
 
 /** Faixa do contador no card. Atualiza sozinha a cada 30 segundos. */
-function WaitBadge({ since }: { since: string }) {
+function WaitBadge({ since, onRequest }: { since: string; onRequest: () => void }) {
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -180,7 +180,7 @@ function CteRequest({
       <button
         type="button"
         disabled={busy}
-        onClick={() => setCteOpen(true)}
+        onClick={onRequest}
         title="Avisar que o e-mail foi enviado à transportadora"
         className="rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:border-primary hover:text-primary"
       >
@@ -578,7 +578,7 @@ function CargoContent() {
                           {l.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
                         </span>
                       </span>
-                        <span className="flex shrink-0 flex-col items-end gap-1"> {key === "invoiced" && invoicedAt[l.id] && (<WaitBadge since={invoicedAt[l.id]} />)}
+                        <span className="flex shrink-0 flex-col items-end gap-1"> {key === "invoiced" && invoicedAt[l.id] && (<WaitBadge since={invoicedAt[l.id]} onRequest={() => setCteOpen(true)} />)}
                         {key === "printed" && (
                           <CteRequest
                             load={l}
