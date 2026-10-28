@@ -9,6 +9,7 @@ import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/ki
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { McImportModal } from "@/components/McImportModal";
+import { CteRequestModal } from "@/components/CteRequestModal";
 import {
   billingCompletionPatch, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
   liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft,
@@ -179,7 +180,7 @@ function CteRequest({
       <button
         type="button"
         disabled={busy}
-        onClick={onRequest}
+        onClick={() => setCteOpen(true)}
         title="Avisar que o e-mail foi enviado à transportadora"
         className="rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-semibold text-muted-foreground hover:border-primary hover:text-primary"
       >
@@ -225,6 +226,7 @@ function CargoContent() {
   /** null = fila de hoje; "2026-10-10" = histórico daquele dia */
   const [viewDay, setViewDay] = useState<string | null>(null);
   const [mbOpen, setMbOpen] = useState(false);
+  const [cteOpen, setCteOpen] = useState(false);
 
   const { data: loads = [] } = useSuspenseQuery({
     queryKey: ["cargo_loads", household],
@@ -785,12 +787,17 @@ function CargoContent() {
         existing={loads}
         onDone={() => void qc.invalidateQueries({ queryKey: ["cargo_loads", household] })}
       />
+
+       <CteRequestModal
+        open={cteOpen}
+        onClose={() => setCteOpen(false)}
+        load={current}
+        onSent={() => { setCteOpen(false); void requestCte(current!); }}
+      />
+
     </div>
   );
 }
-
-/* ---------- Histórico da placa ---------- */
-
 /* ---------- Histórico da placa ---------- */
 
 function VehicleHistory({ plate, loads }: { plate: string; loads: CargoLoad[] }) {
