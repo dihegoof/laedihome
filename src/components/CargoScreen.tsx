@@ -583,7 +583,7 @@ function CargoContent() {
                           <CteRequest
                             load={l}
                             busy={busy}
-                            onRequest={() => void requestCte(l)} />)}
+                            onRequest={() => setCteOpen(true)} />)}
                       </span>
                     </span>
                   </button>
