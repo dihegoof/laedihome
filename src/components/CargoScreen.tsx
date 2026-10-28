@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { McImportModal } from "@/components/McImportModal";
 import {
   billingCompletionPatch, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
   liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft,
@@ -223,6 +224,7 @@ function CargoContent() {
   const [showDone, setShowDone] = useState(false);
   /** null = fila de hoje; "2026-10-10" = histórico daquele dia */
   const [viewDay, setViewDay] = useState<string | null>(null);
+  const [mbOpen, setMbOpen] = useState(false);
 
   const { data: loads = [] } = useSuspenseQuery({
     queryKey: ["cargo_loads", household],
@@ -482,6 +484,10 @@ function CargoContent() {
           <Button size="sm" variant="soft" onClick={() => setPasteOpen(true)}>
             <Plus className="h-4 w-4" /> Importar
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setMbOpen(true)}>
+            <Plus className="h-4 w-4" /> Importar MB
+          </Button>
+
         </div>
       </div>
 
@@ -726,6 +732,7 @@ function CargoContent() {
         </section>
       </div>
 
+            
       {/* Histórico da placa */}
       <Modal
         open={vehicleOpen}
@@ -771,6 +778,13 @@ function CargoContent() {
           }}
         />
       </Modal>
+
+       <McImportModal
+        open={mbOpen}
+        onClose={() => setMbOpen(false)}
+        existing={loads}
+        onDone={() => void qc.invalidateQueries({ queryKey: ["cargo_loads", household] })}
+      />
     </div>
   );
 }
