@@ -11,6 +11,7 @@ import { TABS, isTabAllowed, usePermissions, useSavePermission } from "@/lib/per
 import { supabase } from "@/integrations/supabase/client";
 import { compressImage, getSignedUrl, uploadFile } from "@/lib/storage";
 import { Image as ImageIcon } from "lucide-react";
+import { CteContactsAdmin } from "@/components/CteContactsAdmin";
 import {
   DEFAULT_SETTINGS,
   THEMES,
@@ -217,7 +218,7 @@ export function AdminScreen({ userName }: { userName: string }) {
             cleaningNotificationsEnabled ? "desativou os avisos de lavagem" : "ativou os avisos de lavagem",
           )}
         >
-          <Bell className="h-4 w-4" /> {cleaningNotificationsEnabled ? "Avisos ativados" : "Avisos desativados"}
+      <Bell className="h-4 w-4" /> {cleaningNotificationsEnabled ? "Avisos ativados" : "Avisos desativados"}
         </Button>
         <div className="mt-4 grid grid-cols-2 gap-3">
           <Field label="Antecedência">
@@ -324,6 +325,7 @@ export function AdminScreen({ userName }: { userName: string }) {
         disabled={busy}
         onChange={(next) => void apply({ finance_categories: next }, "editou as categorias das finanças")}
       />
+      
      <section className="surface p-4">
         <header className="mb-3 flex items-center gap-2">
           <ImageIcon className="h-4 w-4 text-primary" />
@@ -427,6 +429,8 @@ export function AdminScreen({ userName }: { userName: string }) {
           disabled={busy}
           onSave={(next) => void apply({ steps_volume: next }, "editou os passos de volume")}
         />
+
+        <CteContactsAdmin userName={userName} />
       </section>
     </div>
   );
@@ -437,8 +441,6 @@ function SettingNumber({ label, value, disabled, min, onSave }: { label: string;
   useEffect(() => setDraft(String(value)), [value]);
   return <Field label={label}><input className="field" inputMode="decimal" value={draft} disabled={disabled} onChange={(event) => setDraft(event.target.value)} onBlur={() => { const next = Number(draft.replace(",", ".")); if (Number.isFinite(next) && next >= min && next !== value) onSave(next); else setDraft(String(value)); }} /></Field>;
 }
-
-
 
 function CategoryEditor({
   icon,
