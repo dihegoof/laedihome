@@ -119,11 +119,6 @@ export function CteContactsAdmin({ userName }: { userName: string }) {
         {loading && <Spinner className="ml-auto" />}
       </header>
 
-      <p className="mb-3 text-xs text-muted-foreground">
-        Usados ao solicitar CT-e manual. A Torre vai no Para, junto com a transportadora da carga.
-        A cópia é sempre a mesma, em qualquer pedido.
-      </p>
-
       <div className="space-y-4">
         <div>
           <p className="mb-1 text-[11px] font-semibold uppercase text-muted-foreground">
