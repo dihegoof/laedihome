@@ -429,9 +429,9 @@ export function AdminScreen({ userName }: { userName: string }) {
           disabled={busy}
           onSave={(next) => void apply({ steps_volume: next }, "editou os passos de volume")}
         />
-
-        <CteContactsAdmin userName={userName} />
       </section>
+
+      <CteContactsAdmin userName={userName} />
     </div>
   );
 }
