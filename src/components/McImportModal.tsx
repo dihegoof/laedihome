@@ -13,13 +13,14 @@ import { blankCargo, cargoDay, type CargoDraft, type CargoLoad } from "@/lib/car
 const MB_PRODUCTS: { code: string; name: string; palletId: string; boxesPerPallet: number | null }[] = [
   { code: "92527", name: "CRYSTAL 500ML SEM GÁS 12UN", palletId: "92596", boxesPerPallet: 168 },
   { code: "92522", name: "CRYSTAL 500ML COM GÁS 12UN", palletId: "92594", boxesPerPallet: 168 },
-  { code: "92521", name: "CRYSTAL 1,5L SEM GÁS", palletId: "92592", boxesPerPallet: null },
-  { code: "92520", name: "CRYSTAL 1,5L COM GÁS", palletId: "92590", boxesPerPallet: null },
-  { code: "92670", name: "CRYSTAL PK 1,5L", palletId: "92674", boxesPerPallet: null },
-  { code: "92536", name: "CRYSTAL COPO", palletId: "92597", boxesPerPallet: 50 },
-  { code: "92909", name: "CRYSTAL COPO 200", palletId: "92909", boxesPerPallet: null },
-  { code: "92581", name: "CRYSTAL 5 LITROS", palletId: "92601", boxesPerPallet: null },
+  { code: "92521", name: "CRYSTAL 1,5L SEM GÁS 06UN", palletId: "92592", boxesPerPallet: 112 },
+  { code: "92520", name: "CRYSTAL 1,5L COM GÁS 06UN", palletId: "92590", boxesPerPallet: 140 },
+  { code: "92670", name: "CRYSTAL 1,5L SEM GÁS 08UN PROM", palletId: "92674", boxesPerPallet: 84 },
+  { code: "92909", name: "CRYSTAL COPO 200ML", palletId: "92909", boxesPerPallet: 60 },
+  { code: "92581", name: "CRYSTAL 5L", palletId: "92601", boxesPerPallet: 112 },
+  { code: "92536", name: "CRYSTAL COPO CX 50", palletId: "92597", boxesPerPallet: 50 },
 ];
+
 
 type Line = { pallets: string; boxes: string };
 
