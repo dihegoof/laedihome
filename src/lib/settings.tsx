@@ -51,7 +51,7 @@ export const DEFAULT_SETTINGS = {
   target_glucose: 100,
   correction_factor: 150,
   dose_increment: 0.5,
-  eader_image_url: null,
+  header_image_url: null,
   header_title: "LaediHome",
   steps_count: [1, 2, 5, 10],
   steps_weight: [100, 250, 500, 1000, 5000],
