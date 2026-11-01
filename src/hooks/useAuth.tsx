@@ -1,4 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryPersister, setOfflineIdentity } from "@/lib/offline";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -27,6 +29,9 @@ const Ctx = createContext<AuthCtx>({
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const qc = useQueryClient();
+  const currentUser = useRef<string | null>(null);
+  const currentHousehold = useRef<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,11 +42,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .select("id,email,name,household_id,assistant_always_on")
       .eq("id", userId)
       .maybeSingle();
+    if (currentUser.current !== userId) return;
+    if (currentHousehold.current && currentHousehold.current !== data?.household_id) {
+      qc.clear();
+      await queryPersister.removeClient();
+    }
+    currentHousehold.current = data?.household_id ?? null;
+    setOfflineIdentity(data?.household_id ? { userId, householdId: data.household_id } : null);
     setProfile((data as Profile) ?? null);
+    window.dispatchEvent(new CustomEvent("offline-queue-change"));
   }
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+      const nextUser = s?.user.id ?? null;
+      if (currentUser.current !== nextUser) {
+        qc.clear();
+        setProfile(null);
+        setOfflineIdentity(null);
+        currentHousehold.current = null;
+      }
+      currentUser.current = nextUser;
       setSession(s);
       if (s?.user) {
         setTimeout(() => void loadProfile(s.user.id), 0);
@@ -51,13 +72,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     supabase.auth.getSession().then(async ({ data }) => {
+      currentUser.current = data.session?.user.id ?? null;
       setSession(data.session);
       if (data.session?.user) await loadProfile(data.session.user.id);
       setLoading(false);
     });
 
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [qc]);
 
   return (
     <Ctx.Provider

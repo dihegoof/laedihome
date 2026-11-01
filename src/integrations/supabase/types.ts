@@ -178,7 +178,9 @@ export type Database = {
           billing_status: string
           carrier: string | null
           created_by: string | null
+          cte_requested_at: string | null
           cte_status: string
+          deleted_at: string | null
           departure_confirmed: boolean
           destination_center: string | null
           destination_name: string | null
@@ -202,7 +204,9 @@ export type Database = {
           billing_status?: string
           carrier?: string | null
           created_by?: string | null
+          cte_requested_at?: string | null
           cte_status?: string
+          deleted_at?: string | null
           departure_confirmed?: boolean
           destination_center?: string | null
           destination_name?: string | null
@@ -226,7 +230,9 @@ export type Database = {
           billing_status?: string
           carrier?: string | null
           created_by?: string | null
+          cte_requested_at?: string | null
           cte_status?: string
+          deleted_at?: string | null
           departure_confirmed?: boolean
           destination_center?: string | null
           destination_name?: string | null
@@ -408,6 +414,41 @@ export type Database = {
           },
           {
             foreignKeyName: "cleaning_schedules_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cte_contacts: {
+        Row: {
+          carrier: string | null
+          created_at: string
+          email: string
+          household_id: string
+          id: string
+          kind: string
+        }
+        Insert: {
+          carrier?: string | null
+          created_at?: string
+          email: string
+          household_id?: string
+          id?: string
+          kind: string
+        }
+        Update: {
+          carrier?: string | null
+          created_at?: string
+          email?: string
+          household_id?: string
+          id?: string
+          kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cte_contacts_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
@@ -737,12 +778,17 @@ export type Database = {
           dose_increment: number
           finance_categories: Json
           finance_reset_day: number
+          header_image_url: string | null
+          header_title: string | null
           household_id: string
           insulin_carb_ratio: number
           notifications_enabled: boolean
           product_categories: Json
           reminder_hour: number
           reminder_minutes: number
+          steps_count: Json
+          steps_volume: Json
+          steps_weight: Json
           target_glucose: number
           theme: string
           updated_at: string
@@ -756,12 +802,17 @@ export type Database = {
           dose_increment?: number
           finance_categories?: Json
           finance_reset_day?: number
+          header_image_url?: string | null
+          header_title?: string | null
           household_id?: string
           insulin_carb_ratio?: number
           notifications_enabled?: boolean
           product_categories?: Json
           reminder_hour?: number
           reminder_minutes?: number
+          steps_count?: Json
+          steps_volume?: Json
+          steps_weight?: Json
           target_glucose?: number
           theme?: string
           updated_at?: string
@@ -775,12 +826,17 @@ export type Database = {
           dose_increment?: number
           finance_categories?: Json
           finance_reset_day?: number
+          header_image_url?: string | null
+          header_title?: string | null
           household_id?: string
           insulin_carb_ratio?: number
           notifications_enabled?: boolean
           product_categories?: Json
           reminder_hour?: number
           reminder_minutes?: number
+          steps_count?: Json
+          steps_volume?: Json
+          steps_weight?: Json
           target_glucose?: number
           theme?: string
           updated_at?: string
@@ -1125,6 +1181,42 @@ export type Database = {
           },
         ]
       }
+      tab_permissions: {
+        Row: {
+          allowed: boolean
+          household_id: string
+          tab: string
+          user_id: string
+        }
+        Insert: {
+          allowed?: boolean
+          household_id?: string
+          tab: string
+          user_id: string
+        }
+        Update: {
+          allowed?: boolean
+          household_id?: string
+          tab?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tab_permissions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tab_permissions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       wardrobe_items: {
         Row: {
           client_mutation_id: string | null
@@ -1225,6 +1317,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_cargo_load: {
+        Args: { _expected_updated_at: string; _id: string }
+        Returns: undefined
+      }
       complete_cleaning: {
         Args: {
           _completed_by_name: string
@@ -1246,6 +1342,7 @@ export type Database = {
           token: string
         }[]
       }
+      household_tab_allowed: { Args: { _tab: string }; Returns: boolean }
       import_cargo_loads: { Args: { _loads: Json }; Returns: number }
       is_household_owner: { Args: { _household_id: string }; Returns: boolean }
       join_household: { Args: { _code: string }; Returns: string }
@@ -1256,6 +1353,10 @@ export type Database = {
       remove_household_notification_device: {
         Args: { _token: string }
         Returns: undefined
+      }
+      save_meal_calculation: {
+        Args: { _glucose: number; _items: Json }
+        Returns: string
       }
       save_menu_plan: {
         Args: {

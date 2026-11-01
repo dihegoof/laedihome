@@ -64,6 +64,20 @@
       "when": 1791824922157,
       "tag": "0008_enforce_cargo_dt_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793494429530,
+      "tag": "0009_secure_household_files_and_permissions",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793494503849,
+      "tag": "0010_protect_cargo_and_meal_history",
+      "breakpoints": true
     }
   ]
 }

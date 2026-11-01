@@ -1,6 +1,6 @@
 import type { Tables } from "@/integrations/supabase/types";
 
-export type StockUnit = "un" | "kg" | "l";
+export type StockUnit = "un" | "g" | "kg" | "ml" | "l";
 export type MenuPlan = Tables<"menu_plans"> & { menu_ingredients: Tables<"menu_ingredients">[] };
 export const STOCK_UNITS: StockUnit[] = ["un", "kg", "l"];
 export const MEAL_TYPES = [
@@ -28,7 +28,8 @@ export function compatibleUnits(unit: string): StockUnit[] {
   return ["un"];
 }
 export function stockAmount(amount: number, unit: string, stockUnit: string): number {
-  if (!Number.isFinite(amount) || amount <= 0 || !compatibleUnits(stockUnit).includes(unit as StockUnit)) return NaN;
+  const family = (value: string) => value === "g" || value === "kg" ? "mass" : value === "ml" || value === "l" ? "volume" : value === "un" ? "count" : null;
+  if (!Number.isFinite(amount) || amount <= 0 || !family(unit) || family(unit) !== family(stockUnit)) return NaN;
   if (unit === stockUnit) return amount;
   return unit === "g" || unit === "ml" ? amount / 1000 : amount * 1000;
 }

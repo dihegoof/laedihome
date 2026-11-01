@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Revisar segurança de todos os módulos e corrigir primeiro acesso indevido a dados e arquivos
+- [ ] Corrigir erros atuais e executar testes das regras e navegação autenticada
+- [ ] Receber resultado da análise aprofundada de segurança (aguardando serviço de análise)
+
 - [ ] Agilizar cargas: colar e salvar novas cargas válidas direto, revisar apenas exceções e abrir dados em um clique
 
 - [x] Corrigir leitura das 12 colunas sem títulos, agrupamento por DT e pallets por produto
