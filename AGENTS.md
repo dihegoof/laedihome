@@ -21,3 +21,5 @@
 - Parse headerless cargo rows with a deterministic fixed-column parser, grouping by household DT and summing per-product pallet snapshots; honor explicit headers first and attach continuation lines only to the preceding recognized row to avoid misreading legacy layouts.
 - Keep original cargo registration timestamps immutable on reimport; derive active/history/expired views using São Paulo calendar dates and enforce expiry in read policies and mutation RPCs, avoiding recurring polling jobs.
 - Keep cargo billing impediments and departure confirmation separate from invoice, CTe, print and operation stages; completing billing only issues the invoice, preventing accidental workflow advancement.
+- Enforce tab permissions through restrictive database policies and inside security-definer RPCs; hidden navigation alone is not an authorization boundary.
+- Scope persisted query caches by account and offline mutations by originating account and household; never replay unbound legacy actions or another session's queue.

@@ -1,12 +1,17 @@
 import type { Persister } from "@tanstack/react-query-persist-client";
 import { openDB } from "idb";
 import { supabase } from "@/integrations/supabase/client";
+import { sameOfflineIdentity, type OfflineIdentity } from "./offline-identity";
+
+let identity: OfflineIdentity | null = null;
+export function setOfflineIdentity(next: OfflineIdentity | null) { identity = next; }
 
 const DB_NAME = "nossa-casa-offline";
 const STORE_CACHE = "query-cache";
 const STORE_QUEUE = "mutation-queue";
 
 type PendingMutation = {
+  identity?: OfflineIdentity;
   id: string;
   table: "products" | "cards" | "finances" | "debts" | "goals" | "history" | "wardrobe_items" | "wardrobe_looks" | "appointments";
   operation: "insert" | "update" | "delete";
@@ -26,14 +31,19 @@ async function db() {
 
 export const queryPersister: Persister = {
   persistClient: async (client) => {
-    await (await db()).put(STORE_CACHE, client, "client");
+    const { data } = await supabase.auth.getSession();
+    if (data.session) await (await db()).put(STORE_CACHE, client, `client:${data.session.user.id}`);
   },
-  restoreClient: async () => (await db()).get(STORE_CACHE, "client"),
-  removeClient: async () => (await db()).delete(STORE_CACHE, "client"),
+  restoreClient: async () => {
+    const { data } = await supabase.auth.getSession();
+    return data.session ? (await db()).get(STORE_CACHE, `client:${data.session.user.id}`) : undefined;
+  },
+  removeClient: async () => (await db()).clear(STORE_CACHE),
 };
 
 export async function queueOfflineMutation(mutation: Omit<PendingMutation, "id" | "createdAt">) {
-  const item: PendingMutation = { ...mutation, id: crypto.randomUUID(), createdAt: Date.now() };
+  if (!identity) throw new Error("Entre na sua casa antes de salvar sem conexão.");
+  const item: PendingMutation = { ...mutation, identity: { ...identity }, id: crypto.randomUUID(), createdAt: Date.now() };
   if (item.operation === "insert") item.payload = { ...item.payload, client_mutation_id: item.id };
   await (await db()).put(STORE_QUEUE, item);
   window.dispatchEvent(new CustomEvent("offline-queue-change"));
@@ -41,24 +51,31 @@ export async function queueOfflineMutation(mutation: Omit<PendingMutation, "id" 
 }
 
 export async function pendingMutationCount() {
-  return (await db()).count(STORE_QUEUE);
+  const items = (await (await db()).getAll(STORE_QUEUE)) as PendingMutation[];
+  return items.filter((item) => sameOfflineIdentity(item.identity, identity)).length;
 }
 
+let flushing = false;
 export async function flushOfflineMutations() {
-  if (!navigator.onLine) return 0;
+  if (!navigator.onLine || !identity || flushing) return 0;
+  const owner = { ...identity };
+  flushing = true;
+  try {
   const database = await db();
   const items = (await database.getAll(STORE_QUEUE)) as PendingMutation[];
   let done = 0;
   for (const item of items.sort((a, b) => a.createdAt - b.createdAt)) {
+    if (!sameOfflineIdentity(owner, identity)) break;
+    if (!sameOfflineIdentity(item.identity, owner)) continue;
     let error: { message: string } | null = null;
     if (item.operation === "insert") {
       const result = await supabase.from(item.table).upsert(item.payload as never, { onConflict: "client_mutation_id" });
       error = result.error;
     } else if (item.operation === "update" && item.rowId) {
-      const result = await supabase.from(item.table).update(item.payload as never).eq("id", item.rowId);
+      const result = await supabase.from(item.table).update(item.payload as never).eq("id", item.rowId).eq("household_id", owner.householdId);
       error = result.error;
     } else if (item.operation === "delete" && item.rowId) {
-      const result = await supabase.from(item.table).delete().eq("id", item.rowId);
+      const result = await supabase.from(item.table).delete().eq("id", item.rowId).eq("household_id", owner.householdId);
       error = result.error;
     }
     if (error) break;
@@ -66,4 +83,5 @@ export async function flushOfflineMutations() {
     done += 1;
   }
   return done;
+  } finally { flushing = false; }
 }
