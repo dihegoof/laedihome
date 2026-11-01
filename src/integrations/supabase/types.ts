@@ -1335,6 +1335,7 @@ export type Database = {
           token: string
         }[]
       }
+      household_tab_allowed: { Args: { _tab: string }; Returns: boolean }
       import_cargo_loads: { Args: { _loads: Json }; Returns: number }
       is_household_owner: { Args: { _household_id: string }; Returns: boolean }
       join_household: { Args: { _code: string }; Returns: string }
