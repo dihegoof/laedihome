@@ -180,6 +180,7 @@ export type Database = {
           created_by: string | null
           cte_requested_at: string | null
           cte_status: string
+          deleted_at: string | null
           departure_confirmed: boolean
           destination_center: string | null
           destination_name: string | null
@@ -205,6 +206,7 @@ export type Database = {
           created_by?: string | null
           cte_requested_at?: string | null
           cte_status?: string
+          deleted_at?: string | null
           departure_confirmed?: boolean
           destination_center?: string | null
           destination_name?: string | null
@@ -230,6 +232,7 @@ export type Database = {
           created_by?: string | null
           cte_requested_at?: string | null
           cte_status?: string
+          deleted_at?: string | null
           departure_confirmed?: boolean
           destination_center?: string | null
           destination_name?: string | null
@@ -1314,6 +1317,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      archive_cargo_load: {
+        Args: { _expected_updated_at: string; _id: string }
+        Returns: undefined
+      }
       complete_cleaning: {
         Args: {
           _completed_by_name: string
@@ -1346,6 +1353,10 @@ export type Database = {
       remove_household_notification_device: {
         Args: { _token: string }
         Returns: undefined
+      }
+      save_meal_calculation: {
+        Args: { _glucose: number; _items: Json }
+        Returns: string
       }
       save_menu_plan: {
         Args: {

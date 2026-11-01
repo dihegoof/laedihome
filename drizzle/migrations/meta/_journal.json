@@ -71,6 +71,13 @@
       "when": 1793494429530,
       "tag": "0009_secure_household_files_and_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793494503849,
+      "tag": "0010_protect_cargo_and_meal_history",
+      "breakpoints": true
     }
   ]
 }
