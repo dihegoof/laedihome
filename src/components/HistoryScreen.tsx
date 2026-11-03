@@ -2,6 +2,7 @@ import { useState } from "react";
 import { History, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, Spinner } from "@/components/kit";
+import { Pager, usePagination } from "@/components/Pager";
 import { supabase } from "@/integrations/supabase/client";
 import { useHistory, useInvalidate } from "@/lib/data";
 import { formatDateTime } from "@/lib/format";
@@ -10,6 +11,7 @@ export function HistoryScreen() {
   const { data: entries = [], isLoading } = useHistory();
   const invalidate = useInvalidate();
   const [busy, setBusy] = useState(false);
+  const pg = usePagination(entries, 20);
 
   async function clearAll() {
     if (!confirm("Apagar todo o histórico de atividades?")) return;
@@ -37,7 +39,7 @@ export function HistoryScreen() {
       {!entries.length && <EmptyState>Nenhuma atividade registrada ainda.</EmptyState>}
 
       <div className="space-y-2">
-        {entries.map((e) => (
+        {pg.items.map((e) => (
           <article key={e.id} className="surface flex items-start gap-3 p-3">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary">
               <History className="h-4 w-4" />
@@ -52,6 +54,8 @@ export function HistoryScreen() {
           </article>
         ))}
       </div>
+
+      <Pager {...pg} />
     </div>
   );
 }
