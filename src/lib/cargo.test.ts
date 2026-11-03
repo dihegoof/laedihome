@@ -6,7 +6,7 @@ const header='Data\tCarga\tOrigem\tCentro\tDestino\tTransportadora\tPlaca\tDT\tP
 const row=(cargo='100',code='200',boxes='30',pallets='12') => `12/10/2026\t${cargo}\t1000\t2000\tSão Paulo\tTransportes\tABC1D23\t400\t${pallets}\t${code}\tCoca Cola 2L\t${boxes}`;
 function saved():CargoLoad {
   const d=parseCargoEmail(header+'\n'+row()).loads[0];
-  return {...d,id:'one',household_id:'home',pallets:12,billing_status:'issued',cte_status:'waiting',cte_requested_at:null,print_status:'pending',operational_status:'pending',imported_at:'2026-10-12T12:00:00Z',updated_at:'2026-10-12T12:00:00Z',created_by:null,registered_at:'2026-10-12T12:00:00Z',billing_issue:'none',departure_confirmed:false,cargo_products:d.products.map((p) => ({...p,id:p.product_code,load_id:'one',boxes:Number(p.boxes),boxes_per_pallet:null,sap_code:null}))};
+  return {...d,id:'one',household_id:'home',pallets:12,billing_status:'issued',cte_status:'waiting',cte_requested_at:null,print_status:'pending',operational_status:'pending',imported_at:'2026-10-12T12:00:00Z',updated_at:'2026-10-12T12:00:00Z',created_by:null,registered_at:'2026-10-12T12:00:00Z',billing_issue:'none',departure_confirmed:false,deleted_at:null,cargo_products:d.products.map((p) => ({...p,id:p.product_code,load_id:'one',boxes:Number(p.boxes),boxes_per_pallet:null,sap_code:null}))};
 }
 describe('Cargo import and workflow rules',() => {
   const photo = `12/10/2026	17	B0AC	BFCM	CD Bauru	92581	CRYSTAL 05L C/2 CP	2.912	26	Ritmo	FTP3F84	106832730
