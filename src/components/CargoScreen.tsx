@@ -564,39 +564,65 @@ function CargoContent() {
                     </Button>
                   )}
                 </div>
-                {items.map((l) => (
-                  <button
+                               {items.map((l) => (
+                  <div
                     key={l.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setSelected(l.id)}
-                    className={`w-full rounded-xl border px-3 py-2 text-left transition-all ${cardClass(key)} ${
+                    onKeyDown={(e) => e.key === "Enter" && setSelected(l.id)}
+                    className={`w-full cursor-pointer rounded-xl border px-3 py-2 text-left transition-all ${cardClass(key)} ${
                       selected === l.id ? "ring-2 ring-primary" : "" }`}>
                     <span className="flex items-start justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="flex items-center gap-1 truncate text-[11px] opacity-70">
-                          <span className="truncate">
-                            {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
-                                                        {l.cargo_products
-                              .reduce(
-                                (sum, p) =>
-                                  sum + (boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)),
-                                0,
-                              )
-                              .toLocaleString("pt-BR")}{" "}
-                            cx
-
-                          </span>
-                          {l.departure_confirmed && <Truck className="h-4 w-4 shrink-0 text-primary" />}
+                        <span className="block truncate text-sm font-semibold">{shortLabel(l)}</span>
+                        <span className="block truncate text-[11px] opacity-70">
+                          {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
+                          {l.cargo_products
+                            .reduce(
+                              (sum, p) =>
+                                sum + (boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)),
+                              0,
+                            )
+                            .toLocaleString("pt-BR")} cx
                         </span>
                       </span>
-                        <span className="flex shrink-0 flex-col items-end gap-1"> {key === "invoiced" && invoicedAt[l.id] && (<WaitBadge since={invoicedAt[l.id]} onRequest={() => setCteOpen(true)} />)}
+
+                      <span className="flex shrink-0 flex-col items-end gap-1">
+                        {key === "invoiced" && invoicedAt[l.id] && (
+                          <WaitBadge since={invoicedAt[l.id]} onRequest={() => setCteOpen(true)} />
+                        )}
                         {key === "printed" && (
-                          <CteRequest
-                            load={l}
-                            busy={busy}
-                            onRequest={() => setCteOpen(true)} />)}
+                          <CteRequest load={l} busy={busy} onRequest={() => setCteOpen(true)} />
+                        )}
+
+                        {(key === "done" || l.departure_confirmed) && (
+                          <button
+                            type="button"
+                            disabled={busy}
+                            aria-label={l.departure_confirmed ? "Com saída" : "Sem saída"}
+                            title={l.departure_confirmed ? "Com saída — clique para desmarcar" : "Marcar como com saída"}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void saveStages(
+                                l,
+                                { departure_confirmed: !l.departure_confirmed },
+                                l.departure_confirmed ? "Sem saída" : "Com saída",
+                              );
+                            }}
+                          >
+                            <Truck
+                              className={
+                                l.departure_confirmed
+                                  ? "h-4 w-4 text-primary"
+                                  : "h-4 w-4 opacity-40"
+                              }
+                            />
+                          </button>
+                        )}
                       </span>
                     </span>
-                  </button>
+                  </div>
                 ))}
               </div>
             );
