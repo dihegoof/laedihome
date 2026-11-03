@@ -235,4 +235,76 @@ export function liquidationCsv(loads: CargoLoad[]): string {
     ]);
   return "\uFEFF" + [header, ...rows].map((r) => r.map(escape).join(";")).join("\r\n");
 }
+/** Caixas por palete, por código SAP. Edite aqui quando mudar. */
+export const boxesPerPallet: Record<string, number> = {
+  "92601": 112,
+  "92877": 50,
+  "92597": 60,
+  "92674": 84,
+  "92909": 72,
+  "92592": 112,
+  "92590": 140,
+  "92596": 168,
+  "92594": 168,
+};
+
+export const sapNames: Record<string, string> = {
+  "92601": "5 LTS",
+  "92877": "50 CXS COPO",
+  "92597": "COPO",
+  "92674": "PK 1,5",
+  "92909": "COPO200",
+  "92592": "1,5 S/G",
+  "92590": "1,5 C/G",
+  "92596": "500 S/G",
+  "92594": "500 C/G",
+};
+
+/** Caixas do produto, sempre calculadas pelos paletes — nunca pela importação. */
+export function boxesFor(sapCode: string, pallets: number): number | null {
+  const perPallet = boxesPerPallet[sapCode.trim()];
+  if (!perPallet) return null;
+  return Math.round(pallets * perPallet);
+}
+
+/**
+ * Confere a carga contra a tabela:
+ * - código que não existe na tabela
+ * - nome que não bate com o código
+ * - caixas recalculadas pelos paletes (substitui o valor importado)
+ */
+export function verifyProducts(draft: CargoDraft): { products: ProductDraft[]; warnings: string[] } {
+  const warnings: string[] = [];
+
+  const products = draft.products.map((p) => {
+    const code = p.product_code.trim();
+    const pallets = numberValue(p.pallets ?? "");
+
+    if (pallets === null || pallets <= 0) return p;
+
+    const perPallet = boxesPerPallet[code];
+    if (!perPallet) {
+      warnings.push(`Código ${code} não está na tabela de caixas por palete. Confira antes de importar.`);
+      return p;
+    }
+
+    const expectedName = sapNames[code];
+    if (expectedName && p.description.trim() && p.description.trim().toUpperCase() !== expectedName.toUpperCase()) {
+      warnings.push(`Código ${code} é "${expectedName}", mas veio como "${p.description}".`);
+    }
+
+    const expected = pallets * perPallet;
+    const informed = numberValue(p.boxes);
+    if (informed !== null && informed !== expected) {
+      warnings.push(
+        `Produto ${code}: vieram ${informed} caixas, mas ${pallets} paletes × ${perPallet} = ${expected}. Corrigido para ${expected}.`,
+      );
+    }
+
+    return { ...p, boxes: String(expected) };
+  });
+
+  return { products, warnings };
+}
+
 
