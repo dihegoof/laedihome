@@ -4,6 +4,7 @@ import { Calculator, Camera, ChevronRight, History, Pencil, Plus, Search, Trash2
 import { toast } from "sonner";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
+import { Pager, usePagination } from "@/components/Pager";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateFoodCarbs, calculateInsulin, formatDecimal, parseDecimal } from "@/lib/meal-calculator";
 import { DEFAULT_SETTINGS, useSettings } from "@/lib/settings";
@@ -66,13 +67,16 @@ function Result({ label, value, strong = false }: { label: string; value: string
 function FoodsView() {
   const { data: foods = [], isLoading } = useFoods(); const qc = useQueryClient(); const [search, setSearch] = useState(""); const [draft, setDraft] = useState<FoodDraft | null>(null);
   const filtered = foods.filter((food) => `${food.name} ${food.brand ?? ""} ${food.category}`.toLowerCase().includes(search.toLowerCase()));
+  const pg = usePagination(filtered, 15);
   async function remove(food: Food) { if (!confirm(`Excluir “${food.name}”? O histórico já salvo será mantido.`)) return; const { error } = await supabase.from("foods").delete().eq("id", food.id); if (error) return toast.error(error.message); await qc.invalidateQueries({ queryKey: ["foods"] }); toast.success("Alimento excluído"); }
   return <div className="space-y-3"><div className="surface p-3"><div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" /><input className="field pl-9" placeholder="Nome, marca ou categoria" value={search} onChange={(e) => setSearch(e.target.value)} /></div><Button className="mt-3" size="sm" onClick={() => setDraft({ ...blankFood })}><Plus className="h-4 w-4" />Novo alimento</Button></div>
     {isLoading && <EmptyState>Carregando alimentos...</EmptyState>}{!isLoading && !filtered.length && <EmptyState>Nenhum alimento cadastrado.</EmptyState>}
-    {filtered.map((food) => <article key={food.id} className="surface flex items-center gap-3 p-3"><StoredImage bucket="food-images" path={food.image_url} alt={food.name} className="h-14 w-14 shrink-0 rounded-xl" fallback={<Utensils className="h-5 w-5" />} /><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-1"><strong className="truncate">{food.name}</strong>{!food.active && <Pill tone="muted">inativo</Pill>}</div><p className="text-xs text-muted-foreground">{food.brand ? `${food.brand} · ` : ""}{food.category}</p><p className="text-sm font-semibold text-primary">{formatDecimal(Number(food.carbs_per_100g))} g / 100 g</p></div><div className="flex"><Button size="icon" variant="ghost" aria-label="Editar" onClick={() => setDraft({ id: food.id, name: food.name, category: food.category, carbs: String(food.carbs_per_100g), brand: food.brand ?? "", notes: food.notes ?? "", image_url: food.image_url, active: food.active })}><Pencil className="h-4 w-4" /></Button><Button size="icon" variant="ghost" aria-label="Excluir" onClick={() => void remove(food)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></article>)}
+    {pg.items.map((food) => <article key={food.id} className="surface flex items-center gap-3 p-3"><StoredImage bucket="food-images" path={food.image_url} alt={food.name} className="h-14 w-14 shrink-0 rounded-xl" fallback={<Utensils className="h-5 w-5" />} /><div className="min-w-0 flex-1"><div className="flex flex-wrap gap-1"><strong className="truncate">{food.name}</strong>{!food.active && <Pill tone="muted">inativo</Pill>}</div><p className="text-xs text-muted-foreground">{food.brand ? `${food.brand} · ` : ""}{food.category}</p><p className="text-sm font-semibold text-primary">{formatDecimal(Number(food.carbs_per_100g))} g / 100 g</p></div><div className="flex"><Button size="icon" variant="ghost" aria-label="Editar" onClick={() => setDraft({ id: food.id, name: food.name, category: food.category, carbs: String(food.carbs_per_100g), brand: food.brand ?? "", notes: food.notes ?? "", image_url: food.image_url, active: food.active })}><Pencil className="h-4 w-4" /></Button><Button size="icon" variant="ghost" aria-label="Excluir" onClick={() => void remove(food)}><Trash2 className="h-4 w-4 text-destructive" /></Button></div></article>)}
+    <Pager {...pg} />
     <FoodModal draft={draft} onClose={() => setDraft(null)} onSaved={() => qc.invalidateQueries({ queryKey: ["foods"] })} />
   </div>;
 }
+
 
 function FoodModal({ draft, onClose, onSaved }: { draft: FoodDraft | null; onClose: () => void; onSaved: () => Promise<unknown> }) {
   const [form, setForm] = useState<FoodDraft>(blankFood); const [busy, setBusy] = useState(false);
@@ -83,9 +87,12 @@ function FoodModal({ draft, onClose, onSaved }: { draft: FoodDraft | null; onClo
 }
 
 function MealHistory() {
-  const [selected, setSelected] = useState<Meal | null>(null); const { data: meals = [], isLoading } = useQuery({ queryKey: ["meals"], queryFn: async () => { const { data, error } = await supabase.from("meals").select("*, meal_items(*)").order("created_at", { ascending: false }); if (error) throw error; return (data ?? []) as Meal[]; } });
-  return <div className="space-y-2">{isLoading && <EmptyState>Carregando histórico...</EmptyState>}{!isLoading && !meals.length && <EmptyState>Nenhuma refeição salva.</EmptyState>}{meals.map((meal) => <button key={meal.id} onClick={() => setSelected(meal)} className="surface flex w-full items-center gap-3 p-3 text-left"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Utensils className="h-5 w-5" /></div><div className="min-w-0 flex-1"><strong className="block">{formatDecimal(Number(meal.total_carbs))} g de carboidratos</strong><p className="text-xs text-muted-foreground">{formatDateTime(meal.created_at)} · {meal.created_by_name}</p><p className="text-xs">Glicemia {formatDecimal(Number(meal.glucose), 0)} mg/dL · Dose {formatDecimal(Number(meal.adjusted_dose ?? meal.total_dose), 2)} U</p></div><ChevronRight className="h-4 w-4 text-muted-foreground" /></button>)}<MealDetail meal={selected} onClose={() => setSelected(null)} /></div>;
+  const [selected, setSelected] = useState<Meal | null>(null);
+  const { data: meals = [], isLoading } = useQuery({ queryKey: ["meals"], queryFn: async () => { const { data, error } = await supabase.from("meals").select("*, meal_items(*)").order("created_at", { ascending: false }); if (error) throw error; return (data ?? []) as Meal[]; } });
+  const pg = usePagination(meals, 15);
+  return <div className="space-y-2">{isLoading && <EmptyState>Carregando histórico...</EmptyState>}{!isLoading && !meals.length && <EmptyState>Nenhuma refeição salva.</EmptyState>}{pg.items.map((meal) => <button key={meal.id} onClick={() => setSelected(meal)} className="surface flex w-full items-center gap-3 p-3 text-left"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Utensils className="h-5 w-5" /></div><div className="min-w-0 flex-1"><strong className="block">{formatDecimal(Number(meal.total_carbs))} g de carboidratos</strong><p className="text-xs text-muted-foreground">{formatDateTime(meal.created_at)} · {meal.created_by_name}</p><p className="text-xs">Glicemia {formatDecimal(Number(meal.glucose), 0)} mg/dL · Dose {formatDecimal(Number(meal.adjusted_dose ?? meal.total_dose), 2)} U</p></div><ChevronRight className="h-4 w-4 text-muted-foreground" /></button>)}<Pager {...pg} /><MealDetail meal={selected} onClose={() => setSelected(null)} /></div>;
 }
+
 
 function MealDetail({ meal, onClose }: { meal: Meal | null; onClose: () => void }) {
   if (!meal) return null; const p = (meal.parameters_used && typeof meal.parameters_used === "object" ? meal.parameters_used : {}) as Record<string, unknown>;
