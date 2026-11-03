@@ -707,22 +707,21 @@ function CargoContent() {
                   ))}
               </dl>
 
-              <label className="flex items-center gap-2 text-[13px] font-semibold">
-                <input
-                  type="checkbox"
-                  checked={!!current.departure_confirmed}
-                  disabled={busy}
-                  onChange={(e) =>
-                    saveStages(
-                      current,
-                      { departure_confirmed: e.target.checked },
-                      e.target.checked ? "Com saída" : "Sem saída",
-                    )
-                  }
-                  className="h-4 w-4 rounded border-border accent-primary"
-                />
-                Com saída
-              </label>
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={busy}
+                onClick={() =>
+                  saveStages(
+                    current,
+                    { departure_confirmed: !current.departure_confirmed },
+                    current.departure_confirmed ? "Sem saída" : "Com saída",
+                  )
+                }
+              >
+                <Truck className={current.departure_confirmed ? "h-4 w-4 text-primary" : "h-4 w-4 opacity-40"} />
+                {current.departure_confirmed ? "Com saída" : "Sem saída"}
+              </Button>
 
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setVehicleOpen(true)}>
