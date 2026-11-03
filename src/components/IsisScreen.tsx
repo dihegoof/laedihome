@@ -4,6 +4,7 @@ import { Calculator, Camera, ChevronRight, Download, History, Pencil, Plus, Sear
 import { toast } from "sonner";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
+import { PhotoSearch } from "@/components/PhotoSearch";
 import { Pager, usePagination } from "@/components/Pager";
 import { supabase } from "@/integrations/supabase/client";
 import { calculateFoodCarbs, calculateInsulin, formatDecimal, parseDecimal } from "@/lib/meal-calculator";
