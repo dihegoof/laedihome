@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Calculator, Camera, ChevronRight, History, Pencil, Plus, Search, Trash2, Utensils, X } from "lucide-react";
+import { Calculator, Camera, ChevronRight, Download, History, Pencil, Plus, Search, Trash2, Utensils, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
@@ -90,11 +90,63 @@ function MealHistory() {
   const [selected, setSelected] = useState<Meal | null>(null);
   const { data: meals = [], isLoading } = useQuery({ queryKey: ["meals"], queryFn: async () => { const { data, error } = await supabase.from("meals").select("*, meal_items(*)").order("created_at", { ascending: false }); if (error) throw error; return (data ?? []) as Meal[]; } });
   const pg = usePagination(meals, 15);
-  return <div className="space-y-2">{isLoading && <EmptyState>Carregando histórico...</EmptyState>}{!isLoading && !meals.length && <EmptyState>Nenhuma refeição salva.</EmptyState>}{pg.items.map((meal) => <button key={meal.id} onClick={() => setSelected(meal)} className="surface flex w-full items-center gap-3 p-3 text-left"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Utensils className="h-5 w-5" /></div><div className="min-w-0 flex-1"><strong className="block">{formatDecimal(Number(meal.total_carbs))} g de carboidratos</strong><p className="text-xs text-muted-foreground">{formatDateTime(meal.created_at)} · {meal.created_by_name}</p><p className="text-xs">Glicemia {formatDecimal(Number(meal.glucose), 0)} mg/dL · Dose {formatDecimal(Number(meal.adjusted_dose ?? meal.total_dose), 2)} U</p></div><ChevronRight className="h-4 w-4 text-muted-foreground" /></button>)}<Pager {...pg} /><MealDetail meal={selected} onClose={() => setSelected(null)} /></div>;
+  return <div className="space-y-2">
+    <div className="flex justify-end">
+      <Button size="sm" variant="outline" disabled={!meals.length}
+        onClick={() => {
+          const url = URL.createObjectURL(new Blob([mealsCsv(meals)], { type: "text/csv;charset=utf-8" }));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `isis-medicoes-${new Date().toISOString().slice(0, 10)}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        }}>
+        <Download className="h-4 w-4" /> Exportar
+      </Button>
+    </div>
+    {isLoading && <EmptyState>Carregando histórico...</EmptyState>}{!isLoading && !meals.length && <EmptyState>Nenhuma refeição salva.</EmptyState>}{pg.items.map((meal) => <button key={meal.id} onClick={() => setSelected(meal)} className="surface flex w-full items-center gap-3 p-3 text-left"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-soft text-primary"><Utensils className="h-5 w-5" /></div><div className="min-w-0 flex-1"><strong className="block">{formatDecimal(Number(meal.total_carbs))} g de carboidratos</strong><p className="text-xs text-muted-foreground">{formatDateTime(meal.created_at)} · {meal.created_by_name}</p><p className="text-xs">Glicemia {formatDecimal(Number(meal.glucose), 0)} mg/dL · Dose {formatDecimal(Number(meal.adjusted_dose ?? meal.total_dose), 2)} U</p></div><ChevronRight className="h-4 w-4 text-muted-foreground" /></button>)}<Pager {...pg} /><MealDetail meal={selected} onClose={() => setSelected(null)} /></div>;
 }
 
 
 function MealDetail({ meal, onClose }: { meal: Meal | null; onClose: () => void }) {
-  if (!meal) return null; const p = (meal.parameters_used && typeof meal.parameters_used === "object" ? meal.parameters_used : {}) as Record<string, unknown>;
-  return <Modal open title="Detalhes da refeição" onClose={onClose}><p className="text-xs text-muted-foreground">{formatDateTime(meal.created_at)} · {meal.created_by_name}</p><div className="space-y-2">{meal.meal_items.map((item) => <div key={item.id} className="rounded-xl bg-secondary p-3"><strong className="text-sm">{item.food_name_snapshot}{item.brand_snapshot ? ` · ${item.brand_snapshot}` : ""}</strong><p className="text-xs text-muted-foreground">{formatDecimal(Number(item.weight_grams))} g × {formatDecimal(Number(item.carbs_per_100g_snapshot))} g/100 g</p><p className="text-sm font-semibold text-primary">{formatDecimal(Number(item.calculated_carbs))} g de carboidratos</p></div>)}</div><div className="border-t border-border pt-2"><Result label="Glicemia" value={`${formatDecimal(Number(meal.glucose), 0)} mg/dL`} /><Result label="Total de carboidratos" value={`${formatDecimal(Number(meal.total_carbs))} g`} /><Result label="Insulina da refeição" value={`${formatDecimal(Number(meal.meal_insulin), 2)} U`} /><Result label="Correção" value={`${formatDecimal(Number(meal.correction_insulin), 2)} U`} /><Result label="Dose calculada" value={`${formatDecimal(Number(meal.total_dose), 2)} U`} strong /><Result label="Dose ajustada" value={`${formatDecimal(Number(meal.adjusted_dose ?? meal.total_dose), 2)} U`} strong /></div><div className="rounded-xl bg-secondary p-3 text-xs"><strong>Parâmetros usados</strong><p>Relação: {String(p["insulin_carb_ratio"] ?? "—")} g/U · Alvo: {String(p["target_glucose"] ?? "—")} mg/dL</p><p>Fator: {String(p["correction_factor"] ?? "—")} mg/dL/U · Incremento: {String(p["dose_increment"] ?? "—")} U</p></div></Modal>;
+  if (!meal) return null;
+  const p = (meal.parameters_used && typeof meal.parameters_used === "object" ? meal.parameters_used : {}) as Record<string, unknown>;
+    const qc = useQueryClient();
+  async function removeMeal() {
+    if (!meal || !confirm("Excluir esta medição do histórico? Isso não dá para desfazer.")) return;
+    const { error } = await supabase.from("meals").delete().eq("id", meal.id);
+    if (error) return toast.error(error.message);
+    await qc.invalidateQueries({ queryKey: ["meals"] });
+    toast.success("Medição excluída");
+    onClose();
+  }
+  return <Modal open title="Detalhes da refeição" onClose={onClose} actions={
+    <Button size="sm" variant="dangerGhost" onClick={() => void removeMeal()}>
+      <Trash2 className="h-4 w-4" /> Excluir medição
+    </Button>
+  }><p className="text-xs text-muted-foreground">{formatDateTime(meal.created_at)} · {meal.created_by_name}</p><div className="space-y-2">{meal.meal_items.map((item) => <div key={item.id} className="rounded-xl bg-secondary p-3"><strong className="text-sm">{item.food_name_snapshot}{item.brand_snapshot ? ` · ${item.brand_snapshot}` : ""}</strong><p className="text-xs text-muted-foreground">{formatDecimal(Number(item.weight_grams))} g × {formatDecimal(Number(item.carbs_per_100g_snapshot))} g/100 g</p><p className="text-sm font-semibold text-primary">{formatDecimal(Number(item.calculated_carbs))} g de carboidratos</p></div>)}</div><div className="border-t border-border pt-2"><Result label="Glicemia" value={`${formatDecimal(Number(meal.glucose), 0)} mg/dL`} /><Result label="Total de carboidratos" value={`${formatDecimal(Number(meal.total_carbs))} g`} /><Result label="Insulina da refeição" value={`${formatDecimal(Number(meal.meal_insulin), 2)} U`} /><Result label="Correção" value={`${formatDecimal(Number(meal.correction_insulin), 2)} U`} /><Result label="Dose calculada" value={`${formatDecimal(Number(meal.total_dose), 2)} U`} strong /><Result label="Dose ajustada" value={`${formatDecimal(Number(meal.adjusted_dose ?? meal.total_dose), 2)} U`} strong /></div><div className="rounded-xl bg-secondary p-3 text-xs"><strong>Parâmetros usados</strong><p>Relação: {String(p["insulin_carb_ratio"] ?? "—")} g/U · Alvo: {String(p["target_glucose"] ?? "—")} mg/dL</p><p>Fator: {String(p["correction_factor"] ?? "—")} mg/dL/U · Incremento: {String(p["dose_increment"] ?? "—")} U</p></div></Modal>;
 }
+
+function mealsCsv(meals: Meal[]) {
+  const head = [
+    "Data", "Quem", "Glicemia", "Alimento", "Marca", "Peso (g)",
+    "Carbo g/100g", "Carbo (g)", "Dose (U)", "Carbo total da refeição (g)",
+  ];
+
+  const rows = meals.flatMap((m) => {
+    const dose = m.adjusted_dose ?? m.total_dose;
+    if (!m.meal_items.length) {
+      return [[formatDateTime(m.created_at), m.created_by_name, m.glucose, "(sem itens)", "", "", "", "", dose, m.total_carbs]];
+    }
+    return m.meal_items.map((i) => [
+      formatDateTime(m.created_at), m.created_by_name, m.glucose,
+      i.food_name_snapshot, i.brand_snapshot ?? "", i.weight_grams,
+      i.carbs_per_100g_snapshot, i.calculated_carbs, dose, m.total_carbs,
+    ]);
+  });
+
+  return [head, ...rows]
+    .map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";"))
+    .join("\n");
+}
+
