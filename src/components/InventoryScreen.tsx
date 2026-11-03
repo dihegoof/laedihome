@@ -12,6 +12,7 @@ import { useInvalidate, useProducts, logHistory } from "@/lib/data";
 import { type Product } from "@/lib/types";
 import { useProductCategories, useSettings } from "@/lib/settings";
 import { compressImage, fileToDataUrl, uploadFile } from "@/lib/storage";
+import { PhotoSearch } from "@/components/PhotoSearch";
 import { daysSince, formatStock, qty } from "@/lib/format";
 import { parseReceipt, parseReceiptImage } from "@/lib/ai.functions";
 
@@ -504,6 +505,7 @@ function ProductModal({
             <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={busy}>
               <Camera className="h-4 w-4" /> Foto
             </Button>
+            <PhotoSearch query={local.name} onPick={(url) => { setPreview(null); setLocal((l) => (l ? { ...l, image_url: url } : l)); }} />
             <input
               ref={fileRef}
               type="file"

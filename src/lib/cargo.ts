@@ -278,7 +278,7 @@ export function verifyProducts(draft: CargoDraft): { products: ProductDraft[]; w
 
   const products = draft.products.map((p) => {
     const code = p.product_code.trim();
-    const pallets = numberValue(String(p.extra_fields?.["Pallets do produto"] ?? p.pallets ?? ""));
+    const pallets = numberValue(String(p.extra_fields?.["Pallets do produto"] ?? ""));
 
 
     if (pallets === null || pallets <= 0) return p;
