@@ -572,10 +572,12 @@ function CargoContent() {
                       selected === l.id ? "ring-2 ring-primary" : "" }`}>
                     <span className="flex items-start justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{shortLabel(l)}</span>
-                        <span className="block truncate text-[11px] opacity-70">
-                          {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
-                          {l.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
+                        <span className="flex items-center gap-1 truncate text-[11px] opacity-70">
+                          <span className="truncate">
+                            {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
+                            {l.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
+                          </span>
+                          {l.departure_confirmed && <Truck className="h-4 w-4 shrink-0 text-primary" />}
                         </span>
                       </span>
                         <span className="flex shrink-0 flex-col items-end gap-1"> {key === "invoiced" && invoicedAt[l.id] && (<WaitBadge since={invoicedAt[l.id]} onRequest={() => setCteOpen(true)} />)}
@@ -606,9 +608,32 @@ function CargoContent() {
                     {current.destination_name ?? "sem destino"} · {dateLabel(current.scheduled_date)}
                   </p>
                 </div>
-                <Button size="icon" variant="ghost" onClick={() => setSelected(null)} aria-label="Fechar espelho">
-                  <X className="h-4 w-4" />
-                </Button>
+                <div className="flex shrink-0 items-center">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    disabled={busy}
+                    aria-label={current.departure_confirmed ? "Com saída" : "Sem saída"}
+                    onClick={() =>
+                      saveStages(
+                        current,
+                        { departure_confirmed: !current.departure_confirmed },
+                        current.departure_confirmed ? "Sem saída" : "Com saída",
+                      )
+                    }
+                  >
+                    <Truck
+                      className={
+                        current.departure_confirmed
+                          ? "h-4 w-4 text-primary"
+                          : "h-4 w-4 opacity-40"
+                      }
+                    />
+                  </Button>
+                  <Button size="icon" variant="ghost" onClick={() => setSelected(null)} aria-label="Fechar espelho">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-2">
