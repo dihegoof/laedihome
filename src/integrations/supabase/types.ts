@@ -271,27 +271,33 @@ export type Database = {
       cargo_products: {
         Row: {
           boxes: number
+          boxes_per_pallet: number | null
           description: string
           extra_fields: Json
           id: string
           load_id: string
           product_code: string
+          sap_code: string | null
         }
         Insert: {
           boxes: number
+          boxes_per_pallet?: number | null
           description: string
           extra_fields?: Json
           id?: string
           load_id: string
           product_code: string
+          sap_code?: string | null
         }
         Update: {
           boxes?: number
+          boxes_per_pallet?: number | null
           description?: string
           extra_fields?: Json
           id?: string
           load_id?: string
           product_code?: string
+          sap_code?: string | null
         }
         Relationships: [
           {
