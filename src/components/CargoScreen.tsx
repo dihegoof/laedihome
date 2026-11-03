@@ -11,9 +11,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { McImportModal } from "@/components/McImportModal";
 import { CteRequestModal } from "@/components/CteRequestModal";
 import {
-  billingCompletionPatch, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
-  liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft,
-  type CargoDraft, type CargoHistory, type CargoLoad, type Stage,
+  billingCompletionPatch, boxesFor, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
+  liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft, verifyProducts,
+  type CargoDraft, type CargoHistory, type CargoLoad, type Stage
 } from "@/lib/cargo";
 
 const dateLabel = (v: string) =>
@@ -575,7 +575,15 @@ function CargoContent() {
                         <span className="flex items-center gap-1 truncate text-[11px] opacity-70">
                           <span className="truncate">
                             {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
-                            {l.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} cx
+                                                        {l.cargo_products
+                              .reduce(
+                                (sum, p) =>
+                                  sum + (boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)),
+                                0,
+                              )
+                              .toLocaleString("pt-BR")}{" "}
+                            cx
+
                           </span>
                           {l.departure_confirmed && <Truck className="h-4 w-4 shrink-0 text-primary" />}
                         </span>
@@ -676,7 +684,7 @@ function CargoContent() {
                           {String(productPallets(p))}
                         </td>
                         <td className="py-1 text-right text-[11px] opacity-70 whitespace-nowrap">
-                          {Number(p.boxes).toLocaleString("pt-BR")}
+                           {(boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)).toLocaleString("pt-BR")}
                         </td>
                       </tr>
                     ))}
@@ -684,7 +692,14 @@ function CargoContent() {
                 </table>
                 <p className="mt-1 text-[11px] opacity-70">
                   Total {loadPallets(current)} pallets ·{" "}
-                  {current.cargo_products.reduce((sum, p) => sum + Number(p.boxes), 0).toLocaleString("pt-BR")} caixas
+                  {current.cargo_products
+                    .reduce(
+                      (sum, p) =>
+                        sum + (boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)),
+                      0,
+                    )
+                    .toLocaleString("pt-BR")}{" "}
+                  caixas
                 </p>
               </div>
 
