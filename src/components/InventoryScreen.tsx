@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button, EmptyState, Field, Modal, Pill, Spinner } from "@/components/kit";
 import { StoredImage } from "@/components/StoredImage";
 import { WeeklyMenu } from "@/components/WeeklyMenu";
+import { Pager, usePagination } from "@/components/Pager";
 import { STOCK_UNITS, type StockUnit } from "@/lib/weekly-menu";
 import { useInvalidate, useProducts, logHistory } from "@/lib/data";
 import { type Product } from "@/lib/types";
@@ -81,14 +82,17 @@ export function InventoryScreen({ userName }: { userName: string }) {
     });
   }, [products, search, category, onlyMissing]);
 
+   const pg = usePagination(filtered, 15);
+
   const grouped = useMemo(() => {
     const map = new Map<string, Product[]>();
-    for (const p of filtered) {
+    for (const p of pg.items) {
       const key = p.category || "Sem categoria";
       map.set(key, [...(map.get(key) ?? []), p]);
     }
     return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtered]);
+  }, [pg.items]);
+
 
   const missing = products.filter((p) => Number(p.quantity) <= 0);
 
@@ -274,6 +278,7 @@ export function InventoryScreen({ userName }: { userName: string }) {
           </div>
         </section>
       ))}
+      <Pager {...pg} />
 
       <ProductModal
         draft={draft}
