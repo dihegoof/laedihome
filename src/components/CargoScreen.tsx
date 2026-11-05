@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { McImportModal } from "@/components/McImportModal";
 import { CteRequestModal } from "@/components/CteRequestModal";
 import {
-  billingCompletionPatch, boxesFor, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
+  billingCompletionPatch, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
   liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft, useProductPallets, verifyProducts, 
   type CargoDraft, type CargoHistory, type CargoLoad, type Stage
 } from "@/lib/cargo";
@@ -978,8 +978,15 @@ function ImportCargo({
     [text, existing],
   );
 
-  const ready = result?.ready ?? [];
-  const review = result?.review ?? [];
+  const { data: table = {} } = useProductPallets();
+  const checked = useMemo(() => {
+    const fix = (d: CargoDraft) => { const c = verifyProducts(d, table); return { ...d, products: c.products, warnings: [...new Set([...d.warnings, ...c.warnings])] }; };
+    const all = [...(result?.ready ?? []).map(fix), ...(result?.review ?? []).map(fix)];
+    const readyIds = new Set((result?.ready ?? []).map((d) => d.driver_dt));
+    return { ready: all.filter((d) => readyIds.has(d.driver_dt) && !d.warnings.length), review: all.filter((d) => !readyIds.has(d.driver_dt) || d.warnings.length) };
+  }, [result, table]);
+  const ready = checked.ready;
+  const review = checked.review;
   const unparsed = result?.unparsed ?? [];
   const unchanged = result?.unchanged ?? 0;
 
@@ -1047,10 +1054,7 @@ function ImportCargo({
           disabled={busy || (!ready.length && !review.length)}
           onClick={() =>
             void onImport(
-              [...ready, ...review].map((d) => {
-                const checked = verifyProducts(d);
-                return { ...d, products: checked.products, warnings: [...d.warnings, ...checked.warnings] };
-              }),
+              [...ready, ...review],
             )
           }
         >
