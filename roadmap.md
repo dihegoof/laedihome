@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Corrigir falha de carregamento da aba Cargas e verificar lista e espelho com dados existentes
+
 - [ ] Revisar segurança de todos os módulos e corrigir primeiro acesso indevido a dados e arquivos
 - [ ] Corrigir erros atuais e executar testes das regras e navegação autenticada
 - [ ] Receber resultado da análise aprofundada de segurança (aguardando serviço de análise)

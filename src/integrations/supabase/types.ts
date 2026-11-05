@@ -1096,6 +1096,27 @@ export type Database = {
           },
         ]
       }
+      product_pallets: {
+        Row: {
+          boxes_per_pallet: number
+          description: string
+          sap_code: string
+          updated_at: string
+        }
+        Insert: {
+          boxes_per_pallet: number
+          description: string
+          sap_code: string
+          updated_at?: string
+        }
+        Update: {
+          boxes_per_pallet?: number
+          description?: string
+          sap_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           category: string | null
