@@ -1,4 +1,6 @@
 import type { Database } from '@/integrations/supabase/types';
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export type CargoProduct = Database['public']['Tables']['cargo_products']['Row'];
 export type CargoLoad = Database['public']['Tables']['cargo_loads']['Row'] & { cargo_products: CargoProduct[] };
@@ -237,16 +239,9 @@ export function liquidationCsv(loads: CargoLoad[]): string {
 }
 /** Caixas por palete, por código SAP. Edite aqui quando mudar. */
 export const boxesPerPallet: Record<string, number> = {
-  "92601": 112,
-  "92877": 50,
-  "92597": 60,
-  "92674": 84,
-  "92909": 72,
-  "92592": 112,
-  "92590": 140,
-  "92596": 168,
-  "92594": 168,
-};
+  "92601": 112, "92877": 50, "92597": 60, "92674": 84, "92909": 72,
+  "92592": 112, "92590": 140, "92596": 168, "92594": 168,
+};;
 
 export const sapNames: Record<string, string> = {
   "92601": "5 LTS",
@@ -262,8 +257,8 @@ export const sapNames: Record<string, string> = {
 
 /** Caixas do produto, sempre calculadas pelos paletes — nunca pela importação. */
 export function boxesFor(sapCode: string, pallets: number): number | null {
-  const perPallet = boxesPerPallet[sapCode.trim()];
-  if (!perPallet) return null;
+  const perPallet = boxesPerPallet[String(sapCode).trim()];
+  if (!perPallet || !pallets) return null;
   return Math.round(pallets * perPallet);
 }
 
@@ -306,6 +301,22 @@ export function verifyProducts(draft: CargoDraft): { products: ProductDraft[]; w
   });
 
   return { products, warnings };
+}
+
+export function useProductPallets() {
+  return useQuery({
+    queryKey: ["product_pallets"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("product_pallets")
+        .select("sap_code, boxes_per_pallet");
+      if (error) throw error;
+      const map: Record<string, number> = {};
+      for (const r of data ?? []) map[r.sap_code] = Number(r.boxes_per_pallet);
+      return map;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 }
 
 
