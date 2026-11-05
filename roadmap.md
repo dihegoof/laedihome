@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Corrigir falha de carregamento da aba Cargas e verificar lista e espelho com dados existentes
+- [x] Corrigir falha de carregamento da aba Cargas e verificar lista, espelho e histórico na conta de Dihego sem alterar registros; 24 testes passaram
 
 - [ ] Revisar segurança de todos os módulos e corrigir primeiro acesso indevido a dados e arquivos
 - [ ] Corrigir erros atuais e executar testes das regras e navegação autenticada
