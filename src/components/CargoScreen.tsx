@@ -228,6 +228,9 @@ function CargoContent() {
   const [mbOpen, setMbOpen] = useState(false);
   const [cteOpen, setCteOpen] = useState(false);
 
+  const { data: perPallet = {} } = useProductPallets();
+
+
   const { data: loads = [] } = useSuspenseQuery({
     queryKey: ["cargo_loads", household],
     staleTime: 30_000,
@@ -578,13 +581,12 @@ function CargoContent() {
                         <span className="block truncate text-sm font-semibold">{shortLabel(l)}</span>
                         <span className="block truncate text-[11px] opacity-70">
                           {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
-                          {l.cargo_products
-                            .reduce(
-                              (sum, p) =>
-                                sum + (boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)),
-                              0,
-                            )
-                            .toLocaleString("pt-BR")} cx
+                          {(() => {
+                              const plt = Number(productPallets(p)) || 0;
+                              const per = perPallet[String(p.product_code).trim()];
+                              return (per && plt ? Math.round(plt * per) : Number(p.boxes)).toLocaleString("pt-BR");
+                            })()}
+                             cx
                         </span>
                       </span>
 
