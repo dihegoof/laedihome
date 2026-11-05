@@ -71,7 +71,8 @@ export function CteRequestModal({
     return () => { alive = false; };
   }, [open, carrier]);
 
-  const subject = `Emissão CTe manual - ${carrier || "TRANSPORTADORA"}`;
+  const subjectPlate = (load?.plate ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const subject = `Emissão CTe manual - ${carrier || "TRANSPORTADORA"}${subjectPlate ? `  ${subjectPlate}` : ""}`;
 
   const body = useMemo(() => {
     const dt = (load?.driver_dt ?? "").trim();
