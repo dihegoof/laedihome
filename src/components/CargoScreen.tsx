@@ -577,17 +577,18 @@ function CargoContent() {
                     className={`w-full cursor-pointer rounded-xl border px-3 py-2 text-left transition-all ${cardClass(key)} ${
                       selected === l.id ? "ring-2 ring-primary" : "" }`}>
                     <span className="flex items-start justify-between gap-2">
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold">{shortLabel(l)}</span>
                         <span className="block truncate text-[11px] opacity-70">
                           {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
-                          {(() => {
+                          {l.cargo_products
+                            .reduce((sum, p) => {
                               const plt = Number(productPallets(p)) || 0;
                               const per = perPallet[String(p.product_code).trim()];
-                              return (per && plt ? Math.round(plt * per) : Number(p.boxes)).toLocaleString("pt-BR");
-                            })()}
-                             cx
+                              return sum + (per && plt ? Math.round(plt * per) : Number(p.boxes));
+                            }, 0)
+                            .toLocaleString("pt-BR")}{" "}
+                          cx
                         </span>
+
                       </span>
 
                       <span className="flex shrink-0 flex-col items-end gap-1">
@@ -711,12 +712,13 @@ function CargoContent() {
                         <td className="py-1 text-right font-semibold whitespace-nowrap">
                           {String(productPallets(p))}
                         </td>
-                        <td className="py-1 text-right text-[11px] opacity-70 whitespace-nowrap">
-                           {(() => {
-  const plt = Number(productPallets(p)) || 0;
-  const per = perPallet[String(p.product_code).trim()];
-  return (per && plt ? Math.round(plt * per) : Number(p.boxes)).toLocaleString("pt-BR");
-})()}
+                                                <td className="py-1 text-right text-[11px] opacity-70 whitespace-nowrap">
+                          {(() => {
+                            const plt = Number(productPallets(p)) || 0;
+                            const per = perPallet[String(p.product_code).trim()];
+                            const cx = per && plt ? Math.round(plt * per) : Number(p.boxes);
+                            return cx.toLocaleString("pt-BR");
+                          })()}
                         </td>
                       </tr>
                     ))}
