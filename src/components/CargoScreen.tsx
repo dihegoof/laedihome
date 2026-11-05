@@ -1043,7 +1043,14 @@ function ImportCargo({
       <div className="flex gap-2">
         <Button
           disabled={busy || (!ready.length && !review.length)}
-          onClick={() => void onImport([...ready, ...review])}
+          onClick={() =>
+            void onImport(
+              [...ready, ...review].map((d) => {
+                const checked = verifyProducts(d);
+                return { ...d, products: checked.products, warnings: [...d.warnings, ...checked.warnings] };
+              }),
+            )
+          }
         >
           {busy ? <Spinner className="h-4 w-4" /> : <Check className="h-4 w-4" />}
           Importar {ready.length + review.length || ""}
