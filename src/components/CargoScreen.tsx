@@ -728,7 +728,8 @@ function CargoContent() {
                     .reduce((sum, p) => {
                       const plt = Number(productPallets(p)) || 0;
                       const per = perPallet[String(p.product_code).trim()];
-                      return sum + (per && plt ? Math.round(plt * per) : Number(p.boxes));
+                      const cx = per && plt ? Math.round(plt * per) : Number(p.boxes);
+                      return sum + cx;
                     }, 0)
                     .toLocaleString("pt-BR")}{" "}
                   caixas
