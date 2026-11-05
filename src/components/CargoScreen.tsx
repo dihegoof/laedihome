@@ -712,7 +712,11 @@ function CargoContent() {
                           {String(productPallets(p))}
                         </td>
                         <td className="py-1 text-right text-[11px] opacity-70 whitespace-nowrap">
-                           {(boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)).toLocaleString("pt-BR")}
+                           {(() => {
+  const plt = Number(productPallets(p)) || 0;
+  const per = perPallet[String(p.product_code).trim()];
+  return (per && plt ? Math.round(plt * per) : Number(p.boxes)).toLocaleString("pt-BR");
+})()}
                         </td>
                       </tr>
                     ))}
@@ -721,14 +725,15 @@ function CargoContent() {
                 <p className="mt-1 text-[11px] opacity-70">
                   Total {loadPallets(current)} pallets ·{" "}
                   {current.cargo_products
-                    .reduce(
-                      (sum, p) =>
-                        sum + (boxesFor(p.product_code, Number(productPallets(p)) || 0) ?? Number(p.boxes)),
-                      0,
-                    )
+                    .reduce((sum, p) => {
+                      const plt = Number(productPallets(p)) || 0;
+                      const per = perPallet[String(p.product_code).trim()];
+                      return sum + (per && plt ? Math.round(plt * per) : Number(p.boxes));
+                    }, 0)
                     .toLocaleString("pt-BR")}{" "}
                   caixas
                 </p>
+
               </div>
 
               {/* Placa copiável · DT · pallets · transportadora copiável */}
