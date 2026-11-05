@@ -90,3 +90,19 @@ Ghelere  GHE0D11  106831794`;
   test('export includes only matching loads and their products',() => {const one=saved();const two={...saved(),id:'two',load_number:'101',destination_name:'Santos'};const result=filterCargos([one,two],{...emptyFilters,search:'101'});assert.deepEqual(result.map((l) => l.id),['two']);const csv=cargoCsv(result,true);assert.ok(csv.includes('Santos'));assert.ok(!csv.includes('São Paulo'));assert.ok(csv.includes('Coca Cola 2L'));});
   test('filters CTe independently of invoice status',() => {const issued=saved();const received={...saved(),id:'received',cte_status:'manual'};const result=filterCargos([issued,received],{...emptyFilters,status:'cte_status:waiting'});assert.deepEqual(result.map((l)=>l.id),['one']);});
 });
+import { verifyProducts, blankCargo } from './cargo';
+describe('Caixas sempre por paletes × tabela',() => {
+  const table={'92596':168,'92597':60};
+  const mk=(code:string,plt:string,boxes:string)=>({product_code:code,description:'x',boxes,extra_fields:{'Pallets do produto':plt}});
+  test('dados reais da conferência',() => {
+    const d={...blankCargo(),products:[mk('92596','13','1'),mk('92596','15','2520'),mk('92597','11','9'),mk('92597','13','780')]};
+    const r=verifyProducts(d,table);
+    assert.deepEqual(r.products.map(p=>p.boxes),['2184','2520','660','780']);
+    assert.equal(r.warnings.length,2);
+  });
+  test('código sem cadastro mantém valor e avisa',() => {
+    const r=verifyProducts({...blankCargo(),products:[mk('92527','26','4368')]},table);
+    assert.equal(r.products[0].boxes,'4368');
+    assert.match(r.warnings[0],/92527 não está cadastrado/);
+  });
+});
