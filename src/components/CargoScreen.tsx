@@ -12,7 +12,7 @@ import { McImportModal } from "@/components/McImportModal";
 import { CteRequestModal } from "@/components/CteRequestModal";
 import {
   billingCompletionPatch, boxesFor, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
-  liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft, verifyProducts,
+  liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft, useProductPallets, verifyProducts, 
   type CargoDraft, type CargoHistory, type CargoLoad, type Stage
 } from "@/lib/cargo";
 
