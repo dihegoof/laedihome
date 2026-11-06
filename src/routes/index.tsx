@@ -24,6 +24,8 @@ import { sendDueAppointmentNotifications, sendDueCleaningNotifications } from "@
 import { useApplyTheme, useSettings } from "@/lib/settings";
 import { isTabAllowed, usePermissions, usePermissionsRealtime } from "@/lib/permissions";
 import { getSignedUrl } from "@/lib/storage";
+import { QuickNotes } from "@/components/QuickNotes";
+
 
 export const Route = createFileRoute("/")({
   validateSearch: (search: Record<string, unknown>): { menuWeek?: string } => ({
@@ -206,6 +208,9 @@ function Index() {
           </>
         )}
       </main>
+
+      <QuickNotes userName={userName} />
+
 
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-background/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-2xl">
