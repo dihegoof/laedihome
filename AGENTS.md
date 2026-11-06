@@ -19,6 +19,7 @@
 - Keep cargo tracking household-scoped with local email parsing; auto-import complete new cargos on paste, skip unchanged duplicates and require editable review for uncertain rows or changed reimports. Reuse locked database RPCs and immutable audit history to prevent stale overwrites and workflow resets.
 - Keep the cargo view mounted after its first visit and allow direct cargo switching in the mirror, so tab changes preserve the working context without repeated loading.
 - Parse headerless cargo rows with a deterministic fixed-column parser, grouping by household DT and summing per-product pallet snapshots; honor explicit headers first and attach continuation lines only to the preceding recognized row to avoid misreading legacy layouts.
+- Resolve cargo product aliases through a shared browser-safe code lookup before reading database pallet factors; preserve original imported codes and keep quantities database-driven.
 - Keep original cargo registration timestamps immutable on reimport; derive active/history/expired views using São Paulo calendar dates and enforce expiry in read policies and mutation RPCs, avoiding recurring polling jobs.
 - Keep cargo billing impediments and departure confirmation separate from invoice, CTe, print and operation stages; completing billing only issues the invoice, preventing accidental workflow advancement.
 - Enforce tab permissions through restrictive database policies and inside security-definer RPCs; hidden navigation alone is not an authorization boundary.

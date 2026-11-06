@@ -1,6 +1,7 @@
 import type { Database } from '@/integrations/supabase/types';
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { productBoxesPerPallet } from './cargo-product-codes';
 
 export type CargoProduct = Database['public']['Tables']['cargo_products']['Row'];
 export type CargoLoad = Database['public']['Tables']['cargo_loads']['Row'] & { cargo_products: CargoProduct[] };
@@ -239,7 +240,7 @@ export function liquidationCsv(loads: CargoLoad[]): string {
 }
 /** Caixas do produto pelos paletes, usando a tabela do banco. */
 export function boxesFor(table: Record<string, number>, code: string, pallets: number): number | null {
-  const per = table[String(code).trim()];
+  const per = productBoxesPerPallet(table, String(code));
   return per && pallets ? Math.round(pallets * per) : null;
 }
 
@@ -249,7 +250,7 @@ export function verifyProducts(draft: CargoDraft, table: Record<string, number>)
   const products = draft.products.map((p) => {
     const code = p.product_code.trim();
     const pallets = numberValue(String(p.extra_fields?.["Pallets do produto"] ?? ""));
-    const per = table[code];
+    const per = productBoxesPerPallet(table, code);
     if (!per) { warnings.push(`Código ${code} não está cadastrado na tabela de caixas por palete.`); return p; }
     if (pallets === null || pallets <= 0) return p;
     const expected = Math.round(pallets * per);

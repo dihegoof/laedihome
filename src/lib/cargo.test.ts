@@ -101,8 +101,24 @@ describe('Caixas sempre por paletes × tabela',() => {
     assert.equal(r.warnings.length,2);
   });
   test('código sem cadastro mantém valor e avisa',() => {
+    const r=verifyProducts({...blankCargo(),products:[mk('99999','26','4368')]},table);
+    assert.equal(r.products[0].boxes,'4368');
+    assert.match(r.warnings[0],/99999 não está cadastrado/);
+  });
+  for (const [productCode, palletCode] of [
+    ['92581','92601'], ['92536','92597'], ['92670','92674'], ['92909','92909'],
+    ['92521','92592'], ['92520','92590'], ['92527','92596'], ['92522','92594'],
+  ]) {
+    test(`código ${productCode} usa a tabela do alternativo ${palletCode} da foto`, () => {
+      const r=verifyProducts({...blankCargo(),products:[mk(productCode,'2','74')]},{[palletCode]:37});
+      assert.equal(r.products[0].boxes,'74');
+      assert.equal(r.products[0].product_code,productCode);
+      assert.deepEqual(r.warnings,[]);
+    });
+  }
+  test('500 sem gás 92527 reconhece 92596 e calcula 26 × 168 sem aviso', () => {
     const r=verifyProducts({...blankCargo(),products:[mk('92527','26','4368')]},table);
     assert.equal(r.products[0].boxes,'4368');
-    assert.match(r.warnings[0],/92527 não está cadastrado/);
+    assert.deepEqual(r.warnings,[]);
   });
 });
