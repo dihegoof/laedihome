@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle, ArrowLeft, Check, ChevronDown, Download, FileText, Pencil,
+   AlertTriangle, ArrowLeft, Check, ChevronDown, Download, FileText, Pencil,
   Plus, Printer, Scissors, Search, Trash2, Truck, X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -134,6 +134,28 @@ const productPallets = (p: CargoLoad["cargo_products"][number]) =>
 const byDt = (a: CargoLoad, b: CargoLoad) =>
   String(a.driver_dt ?? "").localeCompare(String(b.driver_dt ?? ""), "pt-BR", { numeric: true });
 
+/** Data de importação — o mouse em cima mostra "há X minutos". */
+function ImportedAt({ at }: { at: string }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((v) => v + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const min = Math.floor((Date.now() - new Date(at).getTime()) / 60_000);
+  const quando =
+    min < 1 ? "agora mesmo"
+    : min < 60 ? `há ${min} minuto${min === 1 ? "" : "s"}`
+    : min < 1440 ? `há ${Math.floor(min / 60)}h`
+    : `há ${Math.floor(min / 1440)} dia(s)`;
+
+  return (
+    <span className="opacity-70" title={`Importada ${quando} · ${new Date(at).toLocaleString("pt-BR")}`}>
+      {new Date(at).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}
+    </span>
+  );
+}
+
 /** Faixa do contador no card. Atualiza sozinha a cada 30 segundos. */
 function WaitBadge({ since, onRequest }: { since: string; onRequest: () => void }) {
   const [, tick] = useState(0);
@@ -222,6 +244,15 @@ function CargoContent() {
   const [vehicleOpen, setVehicleOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
+  const [obsText, setObsText] = useState<string | null>(null);
+  const [refreshSec, setRefreshSec] = useState(() => {
+    const saved = Number(localStorage.getItem("cargo-refresh-sec"));
+    return saved > 0 ? saved : 30;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("cargo-refresh-sec", String(refreshSec));
+  }, [refreshSec]);
   const [showDone, setShowDone] = useState(false);
   /** null = fila de hoje; "2026-10-10" = histórico daquele dia */
   const [viewDay, setViewDay] = useState<string | null>(null);
@@ -233,7 +264,8 @@ function CargoContent() {
 
   const { data: loads = [] } = useSuspenseQuery({
     queryKey: ["cargo_loads", household],
-    staleTime: 30_000,
+    staleTime: refreshSec * 1000,
+    refetchInterval: refreshSec * 1000,
     queryFn: async () => {
       if (!household) return [];
       const { data, error } = await supabase
@@ -339,7 +371,19 @@ function CargoContent() {
     }
   }
 
-    /** Excluir: apaga histórico, produtos e a carga. */
+  /** Troca a placa guardando a anterior, para aparecer riscada. */
+  async function changePlate(load: CargoLoad, nova: string) {
+    const limpa = nova.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    if (!limpa || limpa === load.plate) return;
+    await saveStages(
+      load,
+      { plate: limpa, plate_old: load.plate, plate_changed_at: new Date().toISOString() },
+      `Placa ${load.plate ?? "—"} → ${limpa} (carta de correção)`,
+    );
+  }
+
+
+  /** Excluir: apaga histórico, produtos e a carga. */
   async function deleteLoad(load: CargoLoad) {
     if (!window.confirm(`Excluir a carga ${shortLabel(load)}? Isso não dá para desfazer.`)) return;
     if (!navigator.onLine) { toast.error("Você está sem conexão."); return; }
@@ -494,6 +538,19 @@ function CargoContent() {
           </Button>
 
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <label className="text-[12px] text-muted-foreground">Atualizar a cada</label>
+        <select
+          className="h-8 rounded-lg border border-border bg-card px-2 text-[13px]"
+          value={refreshSec}
+          onChange={(e) => setRefreshSec(Number(e.target.value))}
+        >
+          {[10, 15, 30, 60, 120, 300].map((s) => (
+            <option key={s} value={s}>{s}s</option>
+          ))}
+        </select>
       </div>
 
       {isHistory && (
@@ -741,17 +798,42 @@ function CargoContent() {
 
               </div>
 
-              {/* Placa copiável · DT · pallets · transportadora copiável */}
+                           {/* Placa copiável · DT · pallets · transportadora copiável */}
               <div className="grid grid-cols-4 gap-2 rounded-xl bg-background/50 p-2 text-[12px]">
-                <button
-                  className="text-left" disabled={busy}
-                  title="Clique para copiar a placa"
-                  onClick={() => void copy(plateLabel(current), "Placa")}
-                >
+                <div className="min-w-0">
                   <p className="text-[10px] uppercase opacity-70">Placa</p>
-                  <p className="font-semibold underline decoration-dotted">{plateLabel(current)}</p>
-                </button>
-                  <button className="text-left" disabled={busy} title="Clique para copiar o DT" onClick={() => void copy((current.driver_dt ?? "").trim(), "DT")}>
+                  {current.plate_old ? (
+                    <span className="flex flex-col">
+                      <s className="text-[11px] opacity-50">{current.plate_old}</s>
+                      <button
+                        className="text-left"
+                        disabled={busy}
+                        title="Clique para copiar a placa nova"
+                        onClick={() => void copy(plateLabel(current), "Placa")}
+                      >
+                        <span className="font-semibold text-primary underline decoration-dotted">
+                          {plateLabel(current)}
+                        </span>
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      className="text-left"
+                      disabled={busy}
+                      title="Clique para copiar a placa"
+                      onClick={() => void copy(plateLabel(current), "Placa")}
+                    >
+                      <span className="font-semibold underline decoration-dotted">{plateLabel(current)}</span>
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  className="text-left"
+                  disabled={busy}
+                  title="Clique para copiar o DT"
+                  onClick={() => void copy((current.driver_dt ?? "").trim(), "DT")}
+                >
                   <p className="text-[10px] uppercase opacity-70">DT</p>
                   <p className="font-semibold underline decoration-dotted">{current.driver_dt ?? "—"}</p>
                 </button>
@@ -760,8 +842,10 @@ function CargoContent() {
                   <p className="text-[10px] uppercase opacity-70">Pallets</p>
                   <p className="font-semibold">{loadPallets(current)}</p>
                 </div>
+
                 <button
-                  className="min-w-0 text-left" disabled={busy}
+                  className="min-w-0 text-left"
+                  disabled={busy}
                   title="Clique para copiar a transportadora"
                   onClick={() => void copy((current.carrier ?? "").trim(), "Transportadora")}
                 >
@@ -770,7 +854,8 @@ function CargoContent() {
                 </button>
               </div>
 
-                            <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
+
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-[12px]">
                 {cargoFields
                   .filter(([key]) => !["plate", "driver_dt", "carrier", "destination_name", "pallets"].includes(key))
                   .map(([key, label]) => (
@@ -784,6 +869,42 @@ function CargoContent() {
                     </div>
                   ))}
               </dl>
+
+              <div>
+                <p className="text-[10px] uppercase opacity-70">Observações</p>
+                {obsText !== null ? (
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      className="field flex-1"
+                      autoFocus
+                      value={obsText}
+                      onChange={(e) => setObsText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          void saveStages(current, { notes: obsText }, "Observação alterada").then(() => setObsText(null));
+                        }
+                        if (e.key === "Escape") setObsText(null);
+                      }}
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        void saveStages(current, { notes: obsText }, "Observação alterada").then(() => setObsText(null))
+                      }
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="block w-full text-left text-[12px] underline decoration-dotted"
+                    onClick={() => setObsText(current.notes ?? "")}
+                  >
+                    {current.notes?.trim() ? current.notes : <span className="opacity-60">Insira uma observação</span>}
+                  </button>
+                )}
+              </div>
 
               <Button
                 size="sm"
@@ -801,6 +922,22 @@ function CargoContent() {
                 {current.departure_confirmed ? "Com saída" : "Sem saída"}
               </Button>
 
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    const nova = window.prompt(
+                      `Nova placa (atual: ${current.plate ?? "—"}).\nA antiga fica riscada no card.`,
+                      "",
+                    );
+                    if (nova) void changePlate(current, nova);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" /> Corrigir placa
+              </Button>
+
+              
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setVehicleOpen(true)}>
                   <ChevronDown className="h-4 w-4" /> Histórico da placa
@@ -901,7 +1038,7 @@ function VehicleHistory({ plate, loads }: { plate: string; loads: CargoLoad[] })
                 {l.destination_name ?? "sem destino"}
               </span>
               <span className="whitespace-nowrap text-[11px] opacity-70">
-                {dateLabel(cargoDay(new Date(l.registered_at)))}
+                  <ImportedAt at={l.registered_at} />
               </span>
             </div>
             <p className="truncate text-[11px] opacity-70">
