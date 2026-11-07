@@ -9,7 +9,7 @@ export type ProductDraft = { product_code: string; description: string; boxes: s
 export type CargoDraft = { scheduled_date: string; load_number: string; origin_center: string; destination_center: string; destination_name: string; carrier: string; plate: string; driver_dt: string; pallets: string; notes: string; products: ProductDraft[]; warnings: string[]; reviewed: boolean; selected: boolean };
 export const cargoFields = [
   ['scheduled_date', 'Data prevista'], ['load_number', 'Número da carga'], ['origin_center', 'Centro de origem'], ['destination_center', 'Centro de destino'],
-  ['destination_name', 'Nome do destino'], ['carrier', 'Transportadora'], ['plate', 'Placa'], ['driver_dt', 'DT do motorista'], ['pallets', 'Pallets'], ['notes', 'Observações'],
+  ['destination_name', 'Nome do destino'], ['carrier', 'Transportadora'], ['plate', 'Placa'], ['driver_dt', 'DT do motorista'], ['pallets', 'Pallets'],
 ] as const;
 export const stages = {
   billing_status: { label: 'Faturamento', options: [['pending', 'Pendente de faturamento'], ['processing', 'Em faturamento'], ['issued', 'Nota emitida'], ['cancelled', 'Cancelada']] },
