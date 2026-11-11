@@ -258,6 +258,8 @@ function CargoContent() {
   const [viewDay, setViewDay] = useState<string | null>(null);
   const [mbOpen, setMbOpen] = useState(false);
   const [cteOpen, setCteOpen] = useState(false);
+  const [cteSelecting, setCteSelecting] = useState(false);
+  const [cteIds, setCteIds] = useState<string[]>([]);
 
   const { data: perPallet = {} } = useProductPallets();
 
@@ -516,6 +518,8 @@ function CargoContent() {
     groups.pending.length + groups.invoiced.length + groups.printed.length + groups.cut.length;
 
   const isHistory = viewDay !== null;
+  const cteLoads = loads.filter((l) => cteIds.includes(l.id));
+  const cteCarrier = cteLoads[0] ? (cteLoads[0].carrier ?? "").trim().toUpperCase() : null;
 
   return (
     <div className="space-y-4">
@@ -600,6 +604,26 @@ function CargoContent() {
                 <div className="flex items-center gap-2">
                   <h3 className="text-[13px] font-semibold text-muted-foreground">{BUCKETS[key].label}</h3>
                   <Pill tone={BUCKETS[key].tone as never}>{items.length}</Pill>
+                  {key === "printed" && (
+                    cteSelecting ? (
+                      <span className="ml-auto flex gap-1">
+                        <Button size="sm" className="h-7 px-2 text-[11px]" disabled={!cteIds.length}
+                          onClick={() => setCteOpen(true)}>
+                          Solicitar ({cteIds.length})
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 px-2 text-[11px]"
+                          onClick={() => { setCteSelecting(false); setCteIds([]); }}>
+                          Cancelar
+                        </Button>
+                      </span>
+                    ) : (
+                      <Button size="sm" variant="ghost" className="ml-auto h-7 px-2 text-[11px]"
+                        onClick={() => { setCteSelecting(true); setCteIds([]); }}>
+                        Solicitar CT-e
+                      </Button>
+                    )
+                  )}
+
                   {key === "done" && (
                     <Button
                       size="sm"
@@ -652,11 +676,31 @@ function CargoContent() {
 
                       <span className="flex shrink-0 flex-col items-end gap-1">
                         {key === "invoiced" && invoicedAt[l.id] && (
-                          <WaitBadge since={invoicedAt[l.id]} onRequest={() => setCteOpen(true)} />
+                          <WaitBadge since={invoicedAt[l.id]} onRequest={() => { setCteIds([l.id]); setCteOpen(true); }} />
                         )}
-                        {key === "printed" && (
-                          <CteRequest load={l} busy={busy} onRequest={() => setCteOpen(true)} />
+                        {key === "printed" && l.cte_requested_at && (
+                          <CteRequest load={l} busy={busy} onRequest={() => {}} />
                         )}
+                        {key === "printed" && cteSelecting && !l.cte_requested_at && (() => {
+                          const blocked = !!cteCarrier && (l.carrier ?? "").trim().toUpperCase() !== cteCarrier;
+                          const marked = cteIds.includes(l.id);
+                          return (
+                            <button
+                              type="button"
+                              disabled={blocked}
+                              title={blocked ? "Outra transportadora" : "Marcar para solicitar"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setCteIds((ids) => (marked ? ids.filter((i) => i !== l.id) : [...ids, l.id]));
+                              }}
+                              className={`flex h-5 w-5 items-center justify-center rounded border ${
+                                marked ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background"
+                              } ${blocked ? "cursor-not-allowed opacity-30" : ""}`}
+                            >
+                              {marked && <Check className="h-3.5 w-3.5" />}
+                            </button>
+                          );
+                        })()}
 
                         {(key === "done" || l.departure_confirmed) && (
                           <button
@@ -1002,13 +1046,17 @@ function CargoContent() {
         onDone={() => void qc.invalidateQueries({ queryKey: ["cargo_loads", household] })}
       />
 
-       <CteRequestModal
+             <CteRequestModal
         open={cteOpen}
         onClose={() => setCteOpen(false)}
-        load={current}
-        onSent={() => { setCteOpen(false); void requestCte(current!); }}
+        loads={cteLoads}
+        onSent={async () => {
+          setCteOpen(false);
+          for (const l of cteLoads) await requestCte(l);
+          setCteIds([]);
+          setCteSelecting(false);
+        }}
       />
-
     </div>
   );
 }
