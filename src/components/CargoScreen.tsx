@@ -906,13 +906,18 @@ function CargoContent() {
                     <div key={key} className="flex gap-1">
                       <dt className="opacity-70">{label}:</dt>
                       <dd className="truncate">
-                        {key === "scheduled_date"
+                      {key === "scheduled_date"
                           ? dateLabel(String(current.scheduled_date ?? ""))
                           : String(current[key as keyof CargoLoad] ?? "—") || "—"}
                       </dd>
                     </div>
                   ))}
               </dl>
+
+              <p className="text-[11px] opacity-70">
+                Importada em {new Date(current.registered_at).toLocaleString("pt-BR")}
+              </p>
+
 
               <div>
                 <p className="text-[10px] uppercase opacity-70">Observações</p>
@@ -1086,11 +1091,12 @@ function VehicleHistory({ plate, loads }: { plate: string; loads: CargoLoad[] })
                 {l.destination_name ?? "sem destino"}
               </span>
               <span className="whitespace-nowrap text-[11px] opacity-70">
-                  <ImportedAt at={l.registered_at} />
+                {dateLabel(cargoDay(new Date(l.registered_at)))}
               </span>
             </div>
             <p className="truncate text-[11px] opacity-70">
-              {l.cargo_products.map((p) => p.product_code).join(" · ")}
+              {loadPallets(l)} paletes · {l.driver_dt ? `DT ${l.driver_dt}` : "sem DT"}
+              {l.carrier ? ` · ${l.carrier}` : ""}
             </p>
           </article>
         ))}
