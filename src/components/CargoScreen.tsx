@@ -370,7 +370,9 @@ function CargoContent() {
       // Se falhar, desfaz a mudança na tela e mostra o motivo real
       toast.error(errorMessage(e));
     } finally {
-      await qc.invalidateQueries({ queryKey: key });
+     setTimeout(() => {
+       void qc.invalidateQueries({ queryKey: key });
+     }, 900);
       setBusy(false);
     }
   }
