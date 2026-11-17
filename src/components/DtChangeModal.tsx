@@ -20,13 +20,18 @@ function greeting() {
 
 const toList = (emails: string[]) => emails.join("; ");
 
+/** Compara nomes de transportadora ignorando espaço, ponto e traço (1 500 = 1500). */
+const chave = (v: string | null | undefined) =>
+  (v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+const ABAbASTECIMENTO = "abastecimento.pr@kof.com";
+
 /**
  * Solicitação de troca de DT.
  *
- * CT-e automático → Torre em "Para", pedindo apoio na troca e no cancelamento
- *                   do CT-e, mais o pedido de cancelamento do MDF-e.
- * CT-e manual     → Torre só pedindo apoio na troca; quem cancela o CT-e é a
- *                   transportadora, e não há linha de MDF-e.
+ * CT-e automático → cancela o MDF-e (transportadora) + Torre apoiando a troca.
+ * CT-e manual     → cancela o CT-e (transportadora) + Torre apoiando a troca.
+ * Em ambos, a linha das notas fiscais entra depois do DT antigo.
  */
 export function DtChangeModal({
   open,
@@ -42,13 +47,15 @@ export function DtChangeModal({
   const [recipients, setRecipients] = useState<string[]>([]);
   const [copies, setCopies] = useState<string[]>([]);
   const [carrierEmails, setCarrierEmails] = useState<string[]>([]);
+  const [torreEmails, setTorreEmails] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [novoDt, setNovoDt] = useState("");
   const [nf, setNf] = useState("");
   const [motivo, setMotivo] = useState("");
   const [automatico, setAutomatico] = useState(true);
-  const [emailMdfe, setEmailMdfe] = useState("");
+  const [emailTransportadora, setEmailTransportadora] = useState("");
+  const [emailTorre, setEmailTorre] = useState("");
 
   const carrier = (load?.carrier ?? "").trim().toUpperCase();
   const dtAntigo = (load?.driver_dt ?? "").trim();
@@ -59,7 +66,8 @@ export function DtChangeModal({
     setNf("");
     setMotivo("");
     setAutomatico(true);
-    setEmailMdfe("");
+    setEmailTransportadora("");
+    setEmailTorre("");
 
     let alive = true;
     setLoading(true);
@@ -72,22 +80,30 @@ export function DtChangeModal({
         const rows = data ?? [];
         if (!alive) return;
 
-        // sem repetição, na ordem em que estão cadastrados
         const daTransportadora = Array.from(
           new Set(
             rows
-              .filter((r) => r.kind === "carrier" && (r.carrier ?? "").toUpperCase() === carrier)
+              .filter((r) => r.kind === "carrier" && chave(r.carrier) === chave(carrier))
               .map((r) => r.email),
           ),
         );
+        const daTorre = Array.from(
+          new Set(rows.filter((r) => r.kind === "to_fixed").map((r) => r.email)),
+        );
+        const fixosCopia = Array.from(
+          new Set(rows.filter((r) => r.kind === "cc_fixed").map((r) => r.email)),
+        );
 
         setCarrierEmails(daTransportadora);
-        setEmailMdfe(daTransportadora[0] ?? "");
+        setTorreEmails(daTorre);
+        setEmailTransportadora(daTransportadora[0] ?? "");
+        setEmailTorre(daTorre[0] ?? "");
         setRecipients([
-          ...rows.filter((r) => r.kind === "to_fixed").map((r) => r.email),
+          ...daTorre,
           ...daTransportadora,
+          ABAbASTECIMENTO,
         ]);
-        setCopies(Array.from(new Set(rows.filter((r) => r.kind === "cc_fixed").map((r) => r.email))));
+        setCopies(fixosCopia.filter((e) => e !== ABAbASTECIMENTO));
       } catch {
         if (alive) toast.error("Não consegui carregar os contatos de CT-e.");
       } finally {
@@ -105,37 +121,32 @@ export function DtChangeModal({
     const linhas: string[] = [
       `${greeting()} a todos!`,
       "",
-      "Por gentileza nos apoiar com a troca de transporte abaixo, será alterado devido faturamento!",
+      "Por gentileza,",
       "",
+      `${emailTransportadora || carrier}, nos apoiar com o cancelamento do ${
+        automatico ? "MDF-e" : "CT-e"
+      } do transporte citado abaixo e`,
+      "",
+      `${emailTorre || "Torre"} nos apoiar com a troca de transporte abaixo, será alterado devido ${
+        motivo.trim() || "—"
+      }!`,
+      "",
+      `Transporte antigo: ${dtAntigo || "—"}`,
     ];
 
-    if (automatico) {
-      linhas.push("Torre, por gentileza nos apoiar com o cancelamento do CT-e do transporte citado abaixo.", "");
-      if (emailMdfe) {
-        linhas.push(
-          `${emailMdfe}, por gentileza nos apoiar com o cancelamento do manifesto do transporte citado abaixo.`,
-          "",
-        );
-      }
-    } else if (carrierEmails.length) {
+    if (nf.trim()) {
       linhas.push(
-        `${carrier}, por gentileza nos apoiar com o cancelamento do CT-e do transporte citado abaixo.`,
-        "",
+        `${ABAbASTECIMENTO}, desconsiderar as notas fiscais ${nf.trim()}, essas serão canceladas`,
       );
     }
 
-    if (nf.trim()) {
-      linhas.push(`Notas fiscais: ${nf.trim()}`, "");
-    }
-
-    linhas.push(`Transporte antigo: ${dtAntigo ? `400${dtAntigo}` : "—"}`);
-    linhas.push(`Transporte novo: ${novoDt ? `400${novoDt}` : "—"}`);
-    linhas.push("");
-    linhas.push(`Motivo: ${motivo.trim() || "—"}`);
-    linhas.push("");
+    linhas.push(
+      `Transporte novo: ${novoDt.trim() || "—"}`,
+      "",
+    );
 
     return linhas.join("\n");
-  }, [load, novoDt, nf, motivo, automatico, emailMdfe, carrierEmails, carrier, dtAntigo]);
+  }, [load, novoDt, nf, motivo, automatico, emailTransportadora, emailTorre, carrier, dtAntigo]);
 
   const mailto = `mailto:${toList(recipients)}?cc=${encodeURIComponent(toList(copies))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
@@ -182,25 +193,32 @@ export function DtChangeModal({
           O CT-e saiu automático?
         </label>
 
-        {automatico ? (
-          carrierEmails.length ? (
-            <Field label="Cancelamento do MDF-e — quem recebe">
-              <select className="field" value={emailMdfe} onChange={(e) => setEmailMdfe(e.target.value)}>
-                {carrierEmails.map((e) => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-              </select>
-            </Field>
-          ) : (
-            <p className="text-[11px] text-amber-600">
-              Nenhum e-mail cadastrado para {carrier}. A linha do MDF-e não vai entrar.
-            </p>
-          )
+        {carrierEmails.length ? (
+          <Field label={automatico ? "Cancelamento do MDF-e — quem recebe" : "Cancelamento do CT-e — quem recebe"}>
+            <select
+              className="field"
+              value={emailTransportadora}
+              onChange={(e) => setEmailTransportadora(e.target.value)}
+            >
+              {carrierEmails.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </Field>
         ) : (
-          <p className="text-[11px] text-muted-foreground">
-            CT-e manual: a Torre entra só na troca de transporte, o cancelamento do CT-e vai para a
-            transportadora e não há linha de MDF-e.
+          <p className="text-[11px] text-amber-600">
+            Nenhum e-mail cadastrado para {carrier}.
           </p>
+        )}
+
+        {torreEmails.length > 1 && (
+          <Field label="Torre — quem recebe">
+            <select className="field" value={emailTorre} onChange={(e) => setEmailTorre(e.target.value)}>
+              {torreEmails.map((e) => (
+                <option key={e} value={e}>{e}</option>
+              ))}
+            </select>
+          </Field>
         )}
 
         <Field label="Para">
