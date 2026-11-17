@@ -384,6 +384,12 @@ function CargoContent() {
     );
   }
 
+ async function changeDt(load: CargoLoad, novo: string) {
+    const limpo = novo.replace(/\D/g, "");
+    if (!limpo || limpo === (load.driver_dt ?? "").trim()) return;
+    await saveStages(load, { driver_dt: limpo }, `DT ${load.driver_dt ?? "—"} → ${limpo}`);
+  }
+
 
   /** Excluir: apaga histórico, produtos e a carga. */
   async function deleteLoad(load: CargoLoad) {
@@ -518,6 +524,20 @@ function CargoContent() {
     groups.pending.length + groups.invoiced.length + groups.printed.length + groups.cut.length;
 
   const isHistory = viewDay !== null;
+  const palletAlert = (l: CargoLoad): number | null => {
+    const key = (l.plate ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+    if (!key) return null;
+    const anteriores = loads.filter(
+      (o) =>
+        o.id !== l.id &&
+        (o.plate ?? "").replace(/[^A-Za-z0-9]/g, "").toUpperCase() === key &&
+        String(o.registered_at) < String(l.registered_at),
+    );
+    if (!anteriores.length) return null;
+    const max = Math.max(...anteriores.map((o) => loadPallets(o)));
+    return loadPallets(l) > max ? max : null;
+  };
+   
   const cteLoads = loads.filter((l) => cteIds.includes(l.id));
   const cteCarrier = cteLoads[0] ? (cteLoads[0].carrier ?? "").trim().toUpperCase() : null;
 
@@ -659,7 +679,17 @@ function CargoContent() {
                       selected === l.id ? "ring-2 ring-primary" : "" }`}>
                     <span className="flex items-start justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-semibold">{shortLabel(l)}</span>
+                       <span className="flex items-center gap-1.5 text-[13px] font-semibold">
+                          <span className="truncate">{shortLabel(l)}</span>
+                          {palletAlert(l) !== null && (
+                            <span
+                              title={`Revisar: ${loadPallets(l)} paletes, e essa placa levou no máximo ${palletAlert(l)} antes`}
+                              className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-amber-100 text-amber-600 ring-1 ring-amber-300"
+                            >
+                              <AlertTriangle className="h-3 w-3" />
+                            </span>
+                          )}
+                        </span>
                         <span className="block truncate text-[11px] opacity-70">
                           {l.destination_name ?? "sem destino"} · {loadPallets(l)} plt ·{" "}
                           {l.cargo_products
@@ -749,6 +779,14 @@ function CargoContent() {
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center">
+                   {palletAlert(current) !== null && (
+                    <span
+                      title={`Revisar: ${loadPallets(current)} paletes, e essa placa levou no máximo ${palletAlert(current)} antes`}
+                      className="mr-1 inline-flex h-7 items-center gap-1 rounded-lg bg-amber-100 px-2 text-[11px] font-semibold text-amber-700 ring-1 ring-amber-300"
+                    >
+                      <AlertTriangle className="h-3.5 w-3.5" /> Revisar
+                    </span>
+                  )}
                   <Button
                     size="icon"
                     variant="ghost"
@@ -983,10 +1021,21 @@ function CargoContent() {
                     if (nova) void changePlate(current, nova);
                   }}
                 >
-                  <Pencil className="h-4 w-4" /> Corrigir placa
+               <Pencil className="h-4 w-4" /> Corrigir placa
               </Button>
 
-              
+              <Button
+                  size="sm"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => {
+                    const novo = window.prompt(`Novo DT (atual: ${current.driver_dt ?? "—"}):`, current.driver_dt ?? "");
+                    if (novo) void changeDt(current, novo);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" /> Corrigir DT
+                </Button>
+               
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" variant="ghost" onClick={() => setVehicleOpen(true)}>
                   <ChevronDown className="h-4 w-4" /> Histórico da placa
