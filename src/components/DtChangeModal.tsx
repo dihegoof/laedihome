@@ -115,7 +115,7 @@ export function DtChangeModal({
 
   const subject = `Troca de DT - ${carrier || "TRANSPORTADORA"}${novoDt ? `  ${novoDt}` : ""}`;
 
-  const body = useMemo(() => {
+    const body = useMemo(() => {
     if (!load) return "";
 
     const linhas: string[] = [
@@ -123,24 +123,25 @@ export function DtChangeModal({
       "",
       "Por gentileza,",
       "",
-      `${emailTransportadora || carrier}, nos apoiar com o cancelamento do ${
+      `<${emailTransportadora || carrier}>, nos apoiar com o cancelamento do ${
         automatico ? "MDF-e" : "CT-e"
       } do transporte citado abaixo e`,
-      "",
-      `${emailTorre || "Torre"} nos apoiar com a troca de transporte abaixo, será alterado devido ${
-        motivo.trim() || "—"
-      }!`,
       "",
       `Transporte antigo: ${dtAntigo || "—"}`,
     ];
 
     if (nf.trim()) {
       linhas.push(
-        `${ABAbASTECIMENTO}, desconsiderar as notas fiscais ${nf.trim()}, essas serão canceladas`,
+        `<${ABASTECIMENTO}>, desconsiderar as notas fiscais ${nf.trim()}, essas serão canceladas`,
       );
     }
 
     linhas.push(
+      "",
+      `<${emailTorre || "Torre"}> nos apoiar com a troca de transporte abaixo, será alterado devido ${
+        motivo.trim() || "—"
+      }!`,
+      "",
       `Transporte novo: ${novoDt.trim() || "—"}`,
       "",
     );
