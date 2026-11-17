@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { McImportModal } from "@/components/McImportModal";
 import { CteRequestModal } from "@/components/CteRequestModal";
+import { DtChangeModal } from "@/components/DtChangeModal";
 import {
   billingCompletionPatch, cargoCsv, cargoDay, cargoFields, cargoIssueOptions,
   liquidationCsv, numberValue, quickCargoImport, stageLabel, stages, validateDraft, useProductPallets, verifyProducts, 
@@ -258,6 +259,7 @@ function CargoContent() {
   const [viewDay, setViewDay] = useState<string | null>(null);
   const [mbOpen, setMbOpen] = useState(false);
   const [cteOpen, setCteOpen] = useState(false);
+  const [dtOpen, setDtOpen] = useState(false);
   const [cteSelecting, setCteSelecting] = useState(false);
   const [cteIds, setCteIds] = useState<string[]>([]);
 
@@ -383,13 +385,6 @@ function CargoContent() {
       `Placa ${load.plate ?? "—"} → ${limpa} (carta de correção)`,
     );
   }
-
- async function changeDt(load: CargoLoad, novo: string) {
-    const limpo = novo.replace(/\D/g, "");
-    if (!limpo || limpo === (load.driver_dt ?? "").trim()) return;
-    await saveStages(load, { driver_dt: limpo }, `DT ${load.driver_dt ?? "—"} → ${limpo}`);
-  }
-
 
   /** Excluir: apaga histórico, produtos e a carga. */
   async function deleteLoad(load: CargoLoad) {
@@ -1024,16 +1019,13 @@ function CargoContent() {
                <Pencil className="h-4 w-4" /> Corrigir placa
               </Button>
 
-              <Button
+                <Button
                   size="sm"
                   variant="ghost"
                   disabled={busy}
-                  onClick={() => {
-                    const novo = window.prompt(`Novo DT (atual: ${current.driver_dt ?? "—"}):`, current.driver_dt ?? "");
-                    if (novo) void changeDt(current, novo);
-                  }}
+                  onClick={() => setDtOpen(true)}
                 >
-                  <Pencil className="h-4 w-4" /> Corrigir DT
+                  <Pencil className="h-4 w-4" /> Solicitar troca de DT
                 </Button>
                
               <div className="flex flex-wrap gap-2">
@@ -1100,7 +1092,7 @@ function CargoContent() {
         onDone={() => void qc.invalidateQueries({ queryKey: ["cargo_loads", household] })}
       />
 
-             <CteRequestModal
+      <CteRequestModal
         open={cteOpen}
         onClose={() => setCteOpen(false)}
         loads={cteLoads}
@@ -1109,6 +1101,20 @@ function CargoContent() {
           for (const l of cteLoads) await requestCte(l);
           setCteIds([]);
           setCteSelecting(false);
+        }}
+      />
+      <DtChangeModal
+        open={dtOpen}
+        onClose={() => setDtOpen(false)}
+        load={current}
+        onSent={async (novoDt) => {
+          setDtOpen(false);
+          if (!current) return;
+          await saveStages(
+            current,
+            { driver_dt: novoDt.replace(/\D/g, "") },
+            `DT ${current.driver_dt ?? "—"} → ${novoDt}`,
+          );
         }}
       />
     </div>
