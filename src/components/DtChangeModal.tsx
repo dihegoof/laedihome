@@ -124,60 +124,43 @@ export function DtChangeModal({
 
   const subject = `Troca de DT - ${carrier || "TRANSPORTADORA"}${novoDt ? `  ${novoDt}` : ""}`;
 
-        const body = useMemo(() => {
+    const body = useMemo(() => {
     if (!load) return "";
 
-    const linhas: string[] = [
-      `${greeting()} a todos!`,
-      "",
-      "Por gentileza,",
-      "",
-      `<${emailTransportadora || carrier}>, nos apoiar com o cancelamento do ${
-        automatico ? "MDF-e" : "CT-e"
-      } do transporte citado abaixo e`,
-      "",
-    ];
+    const linhas: string[] = [`${greeting()} a todos!`, "", "Por gentileza,", ""];
 
     if (automatico) {
+      // CT-e automatico: a Torre cuida do CT-e e da troca
       linhas.push(
-        `"<${emailTransportadora || carrier}>", Poderia verificar se há MDF-e? Se sim, siga com o cancelamento para darmos sequência no processo!`,
+        `<${emailTorre || "Torre"}>, por gentileza nos apoiar com cancelamento do CT-e e troca de transporte devido faturamento ${motivo.trim() || "—"}`,
         "",
-        `<${emailTorre || "Torre"}> nos apoiar com a troca de transporte abaixo, o cancelamento do CT-e e, por gentileza,`,
-        "");
+      );
     } else {
+      // CT-e manual: a transportadora checa o MDF-e, a Torre apoia a troca
       linhas.push(
-        `"<${emailTransportadora || carrier}>", Por gentileza cancelar o CT-e para seguirmos com a solicitação!`,
+        `<${emailTransportadora || carrier}>, Poderia checar se possuímos MDF-e ou CT-e manual para esse transporte? Se sim, seguir com o cancelamento para darmos sequência!`,
         "",
-        `<${emailTorre || "Torre"}> nos apoiar com a troca de transporte abaixo, será alterado devido ${
-          motivo.trim() || "—"}!`,
+        `<${emailTorre || "Torre"}>, por gentileza nos apoiar com a troca de transporte devido faturamento ${motivo.trim() || "—"}`,
         "",
       );
     }
-
-    linhas.push(
-      `<${emailTorre || "Torre"}> nos apoiar com a troca de transporte abaixo, será alterado devido ${
-        motivo.trim() || "—"
-      }!`,
-      "",
-    );
 
     if (nf.trim()) {
       linhas.push(
-        `<${ABASTECIMENTO}>, desconsiderar as notas fiscais ${formatarNf(nf)}, essas serão canceladas`,
+        `<${ABASTECIMENTO}>, favor desconsiderar as notas fiscais ${nf.trim()}, essas serão canceladas!`,
         "",
       );
     }
 
     linhas.push(
-      `Transporte antigo: ${dtAntigo || "—"}`,
-      "",
-      `Transporte novo: ${novoDt.trim() || "—"}`,
+      "Transporte antigo:",
+      "Transporte novo:",
       "",
     );
 
     return linhas.join("\n");
   }, [load, novoDt, nf, motivo, automatico, emailTransportadora, emailTorre, carrier, dtAntigo]);
-
+ 
   const mailto = `mailto:${toList(recipients)}?cc=${encodeURIComponent(toList(copies))}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
   if (!open) return null;
