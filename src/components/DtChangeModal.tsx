@@ -24,7 +24,7 @@ const toList = (emails: string[]) => emails.join("; ");
 const chave = (v: string | null | undefined) =>
   (v ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-const ABAbASTECIMENTO = "abastecimento.pr@kof.com";
+const ABASTECIMENTO = "abastecimento.pr@kof.com";
 
 /**
  * Solicitação de troca de DT.
