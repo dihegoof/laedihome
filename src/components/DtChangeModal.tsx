@@ -18,6 +18,15 @@ function greeting() {
   return "Boa noite";
 }
 
+const formatarNf = (v: string) => {
+  const lista = v
+    .split(/[,;\s]+/)
+    .map((n) => n.trim())
+    .filter(Boolean);
+  if (lista.length <= 1) return lista[0] ?? "";
+  return `${lista.slice(0, -1).join(", ")} e ${lista[lista.length - 1]}`;
+};
+
 const toList = (emails: string[]) => emails.join("; ");
 
 /** Compara nomes de transportadora ignorando espaço, ponto e traço (1 500 = 1500). */
@@ -131,7 +140,16 @@ export function DtChangeModal({
 
     if (automatico) {
       linhas.push(
-        `<${emailTorre || "Torre"}>, nos apoiar com o cancelamento do CT-e do transporte citado abaixo`,
+        `"<${emailTransportadora || carrier}>", Poderia verificar se há MDF-e? Se sim, siga com o cancelamento para darmos sequência no processo!`,
+        "",
+        `<${emailTorre || "Torre"}> nos apoiar com a troca de transporte abaixo, o cancelamento do CT-e e, por gentileza,`,
+        "");
+    } else {
+      linhas.push(
+        `"<${emailTransportadora || carrier}>", Por gentileza cancelar o CT-e para seguirmos com a solicitação!`,
+        "",
+        `<${emailTorre || "Torre"}> nos apoiar com a troca de transporte abaixo, será alterado devido ${
+          motivo.trim() || "—"}!`,
         "",
       );
     }
@@ -145,13 +163,14 @@ export function DtChangeModal({
 
     if (nf.trim()) {
       linhas.push(
-        `<${ABASTECIMENTO}>, desconsiderar as notas fiscais ${nf.trim()}, essas serão canceladas`,
+        `<${ABASTECIMENTO}>, desconsiderar as notas fiscais ${formatarNf(nf)}, essas serão canceladas`,
         "",
       );
     }
 
     linhas.push(
       `Transporte antigo: ${dtAntigo || "—"}`,
+      "",
       `Transporte novo: ${novoDt.trim() || "—"}`,
       "",
     );
