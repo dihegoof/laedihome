@@ -101,9 +101,9 @@ export function DtChangeModal({
         setRecipients([
           ...daTorre,
           ...daTransportadora,
-          ABAbASTECIMENTO,
+          ABASTECIMENTO,
         ]);
-        setCopies(fixosCopia.filter((e) => e !== ABAbASTECIMENTO));
+        setCopies(fixosCopia.filter((e) => e !== ABASTECIMENTO));
       } catch {
         if (alive) toast.error("Não consegui carregar os contatos de CT-e.");
       } finally {
