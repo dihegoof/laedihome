@@ -256,7 +256,7 @@ export function DtChangeModal({
           Ao confirmar o envio, o DT da carga é atualizado e a troca fica registrada no histórico.
         </p>
 
-        <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={async () => {
